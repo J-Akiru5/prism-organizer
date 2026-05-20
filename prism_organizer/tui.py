@@ -13,15 +13,13 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from rich.console import Console, Group
+from rich.console import Group
 from rich.panel import Panel
 from rich.layout import Layout
 from rich.align import Align
 from rich.text import Text
-from rich.table import Table
 from rich.live import Live
 from rich import box
-from rich.style import Style
 
 from prism_organizer import __version__
 from prism_organizer.config import Config
@@ -537,7 +535,7 @@ def _action_watch(config: Config) -> bool:
 
     def _on_change(wp: Path, act: List[str]) -> None:
         ts = time.strftime("%H:%M:%S")
-        add_log(f"[{ts}] {len(act)} new files in {wp.name}", "info")
+        add_log(f"[{ts}] Triggered {'/'.join(act)} in {wp.name}", "info")
 
     watcher = DirectoryWatcher(config)
     watcher.add_directory(str(target), actions=actions)

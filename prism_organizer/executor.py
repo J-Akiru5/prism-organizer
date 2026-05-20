@@ -12,7 +12,6 @@ from datetime import datetime
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional
 
-from colorama import Fore, Style
 from tqdm import tqdm
 
 from prism_organizer.sorter import SortPlan

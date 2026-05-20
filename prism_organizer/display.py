@@ -17,15 +17,12 @@ from rich.progress import (
     TaskProgressColumn,
 )
 from rich.text import Text
-from rich.layout import Layout
 from rich.align import Align
-from rich.columns import Columns
-from rich.live import Live
 from rich import box
-from rich.style import Style
 from rich.tree import Tree
 
 from prism_organizer.utils import format_size
+from prism_organizer import __version__ as _app_version
 
 # ── Theme ─────────────────────────────────────────────────────────────
 
@@ -87,7 +84,7 @@ def display_splash() -> None:
                     style=f"bold {THEME['accent']}",
                 ),
                 Text(
-                    f"v1.1.0 — scan, sort, clean, organize",
+                    f"v{_app_version} — scan, sort, clean, organize",
                     style=THEME["muted"],
                 ),
                 Text("", style=""),

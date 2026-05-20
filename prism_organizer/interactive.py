@@ -253,8 +253,6 @@ def interactive_cloud_drive_selection(
         # Fallback to original manual prompt
         from prism_organizer.cloud_drives import DetectedDrive
         drives_list: List[DetectedDrive] = list(drives)
-
-        import questionary  # noqa — we know it's not available
         print()
         for i, d in enumerate(drives_list, 1):
             status = "[SKIP]" if d.skip else "[INCLUDE]"
