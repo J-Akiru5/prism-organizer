@@ -35,6 +35,7 @@ THEME = {
     "muted": "dim white",
     "info": "white",
     "border": "dim cyan",
+    "row_alt": "on grey15",
 }
 
 CATEGORY_EMOJI = {
@@ -215,7 +216,7 @@ def display_table(
             no_wrap=col.get("no_wrap", False),
         )
     for i, row in enumerate(rows):
-        row_style = "" if i % 2 == 0 else f"on {THEME['muted']}"
+        row_style = THEME["row_alt"] if i % 2 == 1 else ""
         table.add_row(*[str(v) for v in row], style=row_style)
     console.print(table)
 
