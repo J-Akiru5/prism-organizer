@@ -12,6 +12,7 @@ Usage:
     prism-organizer ai-classify <path>   - AI-powered category suggestions
     prism-organizer watch <path>         - Watch directory for changes
     prism-organizer schedule [add|list|remove]  - Manage scheduled tasks
+    prism-organizer tui                  - Interactive TUI dashboard
 """
 
 import argparse
@@ -34,9 +35,11 @@ from prism_organizer.executor import Executor
 from prism_organizer.undo import UndoManager
 from prism_organizer.ai import AIEngine
 from prism_organizer.watcher import DirectoryWatcher, TaskScheduler
+from prism_organizer.tui import run_tui
 from prism_organizer.display import (
     display_header, display_table, display_info, display_warning,
     display_success, display_confirm,
+    display_splash,
 )
 from prism_organizer.utils import (
     expand_path, print_header, print_success, print_error,
@@ -86,6 +89,10 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--workers", "-w", type=int, default=None,
         help="Number of worker threads (default: CPU count)",
+    )
+    parser.add_argument(
+        "--no-interactive", action="store_true",
+        help="Disable arrow-key prompts, use plain text input",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -155,27 +162,29 @@ def create_parser() -> argparse.ArgumentParser:
     sched_sub.add_parser("list", help="List scheduled tasks")
     sched_sub.add_parser("remove", help="Remove a scheduled task")
 
+    # tui
+    subparsers.add_parser("tui", help="Launch interactive TUI dashboard")
+
     return parser
 
 
 def _detect_cloud_drives(config: Config) -> Set[Path]:
     """Detect cloud-synced directories and prompt the user about them.
 
-    Cloud drives (OneDrive, Dropbox, Google Drive, etc.) may cause issues
-    during file organization. This function detects their presence and
-    lets the user choose which ones to skip.
-
-    Args:
-        config: Application configuration instance.
-
-    Returns:
-        Set of Path objects representing cloud drive directories the user
-        chose to skip, or an empty set if none were detected.
+    Uses interactive arrow-key menus when questionary is installed,
+    falls back to the cloud_drives.prompt_user text interface.
     """
     detector = CloudDriveDetector(config)
     detected = detector.detect()
     if detected:
-        return detector.prompt_user(detected)
+        try:
+            from prism_organizer.interactive import (
+                interactive_cloud_drive_selection,
+            )
+            skip_list, _ = interactive_cloud_drive_selection(detected)
+            return {d.path for d in skip_list}
+        except Exception:
+            return detector.prompt_user(detected)
     return set()
 
 
@@ -667,6 +676,15 @@ def main() -> None:
     # Load config
     config = Config(config_path=args.config)
 
+    # Show splash for TUI mode
+    if args.command == "tui":
+        display_splash()
+
+    # Set no-interactive mode if requested
+    if getattr(args, "no_interactive", False):
+        import os
+        os.environ["PRISM_NO_INTERACTIVE"] = "1"
+
     # Dispatch to command handler
     commands = {
         "scan": cmd_scan,
@@ -678,6 +696,7 @@ def main() -> None:
         "ai-classify": cmd_ai_classify,
         "watch": cmd_watch,
         "schedule": cmd_schedule,
+        "tui": lambda a, c: run_tui(c),
     }
 
     handler = commands.get(args.command)

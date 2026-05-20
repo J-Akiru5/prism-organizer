@@ -1,72 +1,49 @@
 # 🔮 Prism Organizer
 
-> A portable, lightweight CLI tool that scans, analyzes, and organizes files on Windows machines.
+> A portable, beautiful CLI tool that scans, analyzes, and organizes files on Windows.
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078d7.svg)]()
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)]()
+[![npm](https://img.shields.io/npm/v/prism-organizer?color=red)](https://www.npmjs.com/package/prism-organizer)
 
 ## Features
 
-- **🔍 Scan & Analyze** — Get a detailed report of any directory: file type breakdown, largest files, duplicates, junk files, and more
+- **🔍 Scan & Analyze** — Detailed reports with file type breakdown, largest files, duplicates, junk, and more
 - **📁 Sort by Type** — Organize files into category folders (Images, Documents, Videos, Code, etc.)
-- **📅 Sort by Date** — Organize files into `YYYY/Month/` date-based folders
+- **📅 Sort by Date** — Organize files into `YYYY/Month/` folders
 - **🔎 Duplicate Detection** — 3-phase detection (size → partial hash → SHA-256) finds exact duplicates fast
-- **🖼️ Near-Duplicate Images** — Perceptual hashing finds visually similar (not just byte-identical) images
-- **🧹 Cleanup** — Remove temp files, Word lock files, incomplete downloads, and flag large installers
-- **☁️ Cloud Drive Detection** — Auto-detects OneDrive, Google Drive, Dropbox, etc. and skips them to prevent sync conflicts
-- **📝 Custom Rules** — Define your own rules in YAML to match and organize files your way
-- **🤖 AI Classification** — AI-powered category suggestions for unknown files (BYOK — bring your own key, or use a local LLM)
+- **🖼️ Near-Duplicate Images** — Perceptual hashing finds visually similar images
+- **🧹 Cleanup** — Remove temp files, lock files, incomplete downloads, large installers
+- **☁️ Cloud Drive Detection** — Auto-detects OneDrive, Google Drive, Dropbox, etc. and skips them
+- **📝 Custom Rules** — Define your own rules in YAML to organize files your way
+- **🤖 AI Classification** — AI-powered category suggestions (BYOK or local LLM)
 - **🔄 Undo** — Every operation is logged and fully reversible
-- **👁️ Dry-Run Preview** — Always shows a preview before making any changes
-- **⚡ Parallel Processing** — Multi-threaded scanning and hashing for large directories
-- **🎨 Rich Terminal UI** — Beautiful tables, panels, and progress bars when the `rich` library is installed (optional)
-- **👀 Watch Mode** — Monitor directories in real-time and auto-organize new files
-- **📅 Scheduled Tasks** — Windows Task Scheduler integration for periodic organization
+- **👁️ Dry-Run Preview** — Always previews before making changes
+- **⚡ Parallel Processing** — Multi-threaded scanning and hashing
+- **🎨 Beautiful Terminal UI** — Rich tables, panels, progress bars with a cyan/purple theme
+- **🎮 Interactive TUI Dashboard** — Arrow-key menus, checkboxes, live panels (`prism-organizer tui`)
+- **👀 Watch Mode** — Real-time directory monitoring with auto-organization
+- **📅 Scheduled Tasks** — Windows Task Scheduler integration
 
 ## Quick Start
 
 ### Prerequisites
-- Python 3.8 or later ([download](https://python.org))
+- **Python 3.8+** ([download](https://python.org))
+- **Node.js 16+** (for npm install only)
 
 ### Installation
 
-Choose one of the following options:
-
-#### Option 1: Direct from GitHub (Recommended)
 ```bash
+# ── NPM (Recommended) ─────────────────────────────────
+npm install -g prism-organizer
+
+# ── Pip ───────────────────────────────────────────────
 pip install git+https://github.com/J-Akiru5/prism-organizer.git
-```
 
-#### Option 2: Pre-packaged ZIP Release
-1. Download the release `prism-organizer.zip` file.
-2. Extract the ZIP file onto your machine.
-3. Double-click `setup.bat` to install it automatically (or run `pip install -e .` in your terminal inside the directory).
-
-#### Option 3: Clone the Repository (For Developers)
-```bash
+# ── Clone & Develop ───────────────────────────────────
 git clone https://github.com/J-Akiru5/prism-organizer.git
-cd prism-organizer
-pip install -e .
-```
-
-### Install Optional Features
-
-```bash
-# Rich terminal UI (recommended)
-pip install rich
-
-# Perceptual image duplicate detection
-pip install imagehash Pillow
-
-# AI classification & renaming (any OpenAI-compatible provider)
-pip install openai
-
-# Real-time directory watching
-pip install watchdog
-
-# Or install everything at once
-pip install -e . && pip install rich imagehash Pillow openai watchdog
+cd prism-organizer && pip install -e .
 ```
 
 ### Verify Installation
@@ -75,39 +52,28 @@ prism-organizer --version
 prism-organizer --help
 ```
 
-> [!NOTE]
-> **PATH Troubleshooting**: If Windows shows a warning that the script is installed in a directory which is not on your `PATH`, you can run the tool directly using Python:
-> ```bash
-> python -m prism_organizer --help
-> ```
-> To fix the `prism-organizer` command permanently, add Python's `Scripts` directory (e.g., `C:\Users\<YourUsername>\AppData\Roaming\Python\Python313\Scripts`) to your system Environment Variables `PATH`.
+> **PATH Troubleshooting**: If the command isn't recognized, run: `python -m prism_organizer --help`
 
 ## Usage
 
 ### Scan a Directory
 ```bash
 prism-organizer scan ~/Downloads
-prism-organizer scan ~/Downloads --verbose
-prism-organizer scan ~/Downloads -w 8      # Use 8 worker threads
+prism-organizer scan ~/Downloads --verbose -w 8
 ```
 
-### Sort Files by Type
+### Sort Files
 ```bash
-prism-organizer sort ~/Downloads
-prism-organizer sort ~/Downloads --by type
-```
-
-### Sort Files by Date
-```bash
-prism-organizer sort ~/Downloads --by date
+prism-organizer sort ~/Downloads                  # Sort by type (default)
+prism-organizer sort ~/Downloads --by date        # Sort by modification date
 ```
 
 ### Find Duplicates
 ```bash
-prism-organizer dupes ~/Downloads                           # Report only
-prism-organizer dupes ~/Downloads --clean                   # Report + prompt to remove
-prism-organizer dupes ~/Downloads --perceptual              # Also find visually similar images
-prism-organizer dupes ~/Downloads --clean --perceptual      # Both exact + near-duplicate
+prism-organizer dupes ~/Downloads                 # Report only
+prism-organizer dupes ~/Downloads --clean          # Report + prompt to remove
+prism-organizer dupes ~/Downloads --perceptual     # Also find visually similar images
+prism-organizer dupes ~/Downloads --clean --perceptual
 ```
 
 ### Clean Junk Files
@@ -115,212 +81,126 @@ prism-organizer dupes ~/Downloads --clean --perceptual      # Both exact + near-
 prism-organizer clean ~/Downloads
 ```
 
-### Apply Custom Rules
+### Custom Rules
 ```bash
 prism-organizer rules ~/Downloads
 ```
 
-### Undo Last Operation
+### Undo
 ```bash
 prism-organizer undo            # Undo last operation
 prism-organizer undo --list     # List recent operations
 ```
 
 ### AI Classification
-
-> **Requires:** `pip install openai`
-> **Config:** `ai.enabled: true` in your config
-
 ```bash
-prism-organizer ai-classify ~/Downloads                        # Suggest categories for unknown files
-prism-organizer ai-classify ~/Downloads --rename                # Also suggest descriptive filenames
+prism-organizer ai-classify ~/Downloads             # Suggest categories
+prism-organizer ai-classify ~/Downloads --rename     # Also suggest filenames
 ```
 
-### Watch Mode (Real-Time)
-
-> **For best experience:** `pip install watchdog`
-> Without watchdog, a polling fallback is used (10-second interval).
-
+### Watch Mode
 ```bash
-prism-organizer watch ~/Downloads                    # Default: auto-sort new files
+prism-organizer watch ~/Downloads                    # Auto-sort new files
 prism-organizer watch ~/Downloads --action clean     # Auto-clean new files
-prism-organizer watch ~/Downloads --action all       # Sort + clean new files
+prism-organizer watch ~/Downloads --action all       # Sort + clean
 ```
 
-### Scheduled Tasks (Windows Task Scheduler)
-
+### Scheduled Tasks
 ```bash
 prism-organizer schedule add ~/Downloads --command sort --interval daily --at 09:00
 prism-organizer schedule list
 prism-organizer schedule remove
 ```
 
-## AI Integration — Bring Your Own Key (BYOK) / Local LLM
+## Interactive TUI Dashboard
 
-Prism Organizer supports **any OpenAI-compatible API** — this means you can use cloud providers (OpenAI, Anthropic via proxy) OR local LLMs (Ollama, LM Studio, vLLM) that expose an OpenAI-compatible endpoint.
+Launch the full interactive dashboard with arrow-key menus and live panels:
 
-**Yes, this is BYOK (Bring Your Own Key).** The tool never sends data to any service you don't configure. You choose the provider, model, and API key.
+```bash
+prism-organizer tui
+```
 
-### Supported Providers
+The TUI provides:
+- **Arrow-key navigation** — select directories, commands, and options with arrow keys
+- **Live panels** — activity log, quick stats, and menu side-by-side
+- **Keyboard shortcuts** — every function is a single keystroke away (`1`=scan, `2`=sort, `3`=dupes, etc.)
+- **Zero subcommand memorization** — discover all features from the menu
 
-| Provider | Setup |
-|----------|-------|
-| **OpenAI API** | Set `provider: openai` and provide your API key |
-| **Ollama** (local) | Set `provider: ollama` — no key needed, uses `http://localhost:11434/v1` |
-| **LM Studio** (local) | Set `provider: lmstudio` — no key needed, uses `http://localhost:1234/v1` |
-| **Any OpenAI-compatible** | Set `provider: openai` + `base_url` to your endpoint |
+```
+╔══════════════════════════════════════════════════════╗
+║  🔮  Prism Organizer v1.1.0                         ║
+║  scan  |  sort  |  dupes  |  clean  |  rules  |  ai ║
+╠══════════════════════════╦═══════════════════════════╣
+║  📋  Main Menu           ║  📊  Quick Stats         ║
+║  🔍 [1]  Scan directory  ║  Downloads: 247 files    ║
+║  📁 [2]  Sort files      ║  Desktop: 89 files       ║
+║  🔎 [3]  Find duplicates ║                          ║
+║  🧹 [4]  Clean junk      ║  📜  Activity Log        ║
+║  📝 [5]  Apply rules     ║  12:34 Sorted 15 files   ║
+║  🤖 [6]  AI classify     ║  12:30 Cleaned 3 items   ║
+║  👀 [7]  Watch mode      ║  12:25 Dupe check: 2 grp ║
+║  ↩️ [8]  Undo last       ║                          ║
+║  [S] Schedule  [H] Help  [Q] Quit                   ║
+╚══════════════════════════╩═══════════════════════════╝
+```
+
+> Use `--no-interactive` to disable arrow-key prompts and use plain text input:
+> ```bash
+> prism-organizer sort ~/Downloads --no-interactive
+> ```
+
+## AI Integration — BYOK / Local LLM
+
+Prism Organizer supports **any OpenAI-compatible API**. Use your own API key (BYOK) or a local LLM (Ollama, LM Studio, vLLM).
 
 ### Configuration
-
 ```yaml
 ai:
   enabled: true
   provider: "openai"            # openai, ollama, or lmstudio
-  model: "gpt-4o-mini"          # or "llama3.2", "phi-4", etc. for local models
-  api_key: ""                   # Only needed for cloud providers (or set OPENAI_API_KEY env var)
-  base_url: ""                  # Override for custom endpoints
+  model: "gpt-4o-mini"
+  api_key: ""                   # or set OPENAI_API_KEY env var
   features:
-    classify_unknown: true      # Suggest categories for unknown file extensions
-    smart_rename: false         # Generate descriptive filenames for auto-named files
-  min_confidence: 0.7           # Only act on suggestions above this confidence threshold
+    classify_unknown: true
+    smart_rename: false
+  min_confidence: 0.7
 ```
 
-### Local LLM Examples
-
-**Ollama** (free, runs locally):
+### Local LLM Example (Ollama)
 ```yaml
 ai:
   enabled: true
   provider: "ollama"
-  model: "llama3.2"             # Any model you've pulled in Ollama
-  # No api_key or base_url needed — defaults to http://localhost:11434/v1
+  model: "llama3.2"
+  # No api_key needed — runs entirely on your machine
 ```
-
-**LM Studio** (free, runs locally):
-```yaml
-ai:
-  enabled: true
-  provider: "lmstudio"
-  model: "local-model"          # Name of the loaded model in LM Studio
-  # No api_key needed — defaults to http://localhost:1234/v1
-```
-
-**Custom OpenAI-compatible endpoint** (e.g., vLLM, TGI):
-```yaml
-ai:
-  enabled: true
-  provider: "openai"
-  model: "custom-model"
-  base_url: "http://localhost:8000/v1"
-  api_key: "sk-..."             # if required by your endpoint
-```
-
-### Security & Privacy
-
-- All AI data stays within your configured provider.
-- Only filenames, extensions, sizes, and short content previews (first ~500 chars of text files) are sent.
-- No files are ever moved or renamed by AI — all suggestions go through the **dry-run → preview → confirm** pipeline.
-- With a local LLM (Ollama/LM Studio), everything stays on your machine — zero data leaves your computer.
 
 ## Configuration
 
-Configuration is stored at `~/.prism-organizer/config.yaml`.
-
-A default config is created automatically on first run. You can also copy and customize `config.example.yaml`.
+Config stored at `~/.prism-organizer/config.yaml`. Auto-created on first run.
 
 ### Key Settings
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| `default_paths` | Directories to organize when no path given | Downloads, Desktop |
+| `default_paths` | Directories to organize | Downloads, Desktop |
 | `categories` | Extension-to-category mappings | 13 categories |
 | `junk_patterns` | Patterns for auto-cleanup | ~$*, *.crdownload, etc. |
-| `cloud_drives.auto_detect` | Auto-skip cloud sync folders | `true` |
-| `installer_detection.enabled` | Flag large installers | `true` |
-| `screenshot_rules.enabled` | Auto-sort screenshots by date | `true` |
-| `duplicates.method` | Detection method (hash/name+size) | `hash` |
-| `duplicates.keep` | Which copy to keep | `oldest` |
-| `duplicates.min_size` | Minimum size to check | `1MB` |
-| `duplicates.perceptual_threshold` | Hamming distance for near-duplicate images | `5` |
-| `ai.enabled` | Enable AI classification/renaming | `false` |
+| `duplicates.perceptual_threshold` | Hamming distance for near-dupes | `5` |
+| `ai.enabled` | Enable AI classification | `false` |
 | `ai.provider` | LLM provider (`openai`, `ollama`, `lmstudio`) | `openai` |
-| `ai.model` | Model name | `gpt-4o-mini` |
-| `ai.min_confidence` | Minimum confidence to apply AI suggestions | `0.7` |
-| `watcher.cooldown_seconds` | Min time between triggered watch actions | `10` |
+| `ai.min_confidence` | Minimum confidence to apply suggestions | `0.7` |
+| `watcher.cooldown_seconds` | Min time between watch actions | `10` |
 | `watcher.min_file_age_seconds` | Wait before acting on new files | `5` |
-
-### Custom Rules
-
-Define rules in your config to automate file organization:
-
-```yaml
-custom_rules:
-  - name: "Archive old installers"
-    match:
-      extension: [.exe, .msi]
-      size_gt: "100MB"
-      older_than: "30d"
-    action: move
-    destination: "~/Archive/Installers/"
-
-  - name: "Organize social media images"
-    match:
-      extension: [.jpg, .png]
-      name_matches: "^[0-9a-f]{8}-[0-9a-f]{4}-.*"
-    action: move
-    destination: "~/Pictures/Social Media/"
-
-  - name: "Clean incomplete downloads"
-    match:
-      extension: .crdownload
-    action: delete
-```
-
-#### Match Conditions
-| Condition | Description | Example |
-|-----------|-------------|---------|
-| `extension` | File extension (single or list) | `.pdf` or `[.jpg, .png]` |
-| `name_contains` | Substring in filename | `"thesis"` |
-| `name_matches` | Regex pattern on filename | `"^IMG_\\d+"` |
-| `size_gt` | File larger than | `"100MB"` |
-| `size_lt` | File smaller than | `"1KB"` |
-| `older_than` | Modified more than X ago | `"30d"`, `"2w"` |
-| `newer_than` | Modified less than X ago | `"7d"` |
-| `path_contains` | Substring in full path | `"Downloads"` |
-
-#### Actions
-| Action | Description |
-|--------|-------------|
-| `move` | Move to destination folder |
-| `copy` | Copy to destination |
-| `rename` | Rename using pattern |
-| `delete` | Remove (backed up first) |
-| `archive` | Compress into zip |
 
 ## Safety Features
 
-- **🔒 Dry-run by default** — Every command shows a preview and asks for confirmation
-- **📦 Backups before delete** — Deleted files go to `.prism-organizer_backup/` first
-- **📝 Full operation logs** — Every action is logged to `~/.prism-organizer/logs/`
+- **🔒 Dry-run by default** — Every command shows a preview before executing
+- **📦 Backups before delete** — Files go to `.prism-organizer_backup/` first
+- **📝 Full operation logs** — Every action logged to `~/.prism-organizer/logs/`
 - **↩️ Undo support** — Reverse any operation with `prism-organizer undo`
-- **☁️ Cloud drive protection** — Auto-skips synced folders to prevent conflicts
-- **🤖 AI always suggests, never acts** — AI classifications go through the preview/confirm pipeline
-
-## Performance Tips
-
-- Use `--workers` (or `-w`) to control thread count. Default is `min(32, cpu_count + 4)`.
-- For mechanical hard drives, use fewer workers (`-w 2`) to avoid I/O thrashing.
-- For SSDs with many small files, more workers (`-w 8` or higher) speeds things up significantly.
-- Duplicate detection runs 3 phases automatically: phase 2 and 3 are parallelized when file counts exceed 50.
-
-## Deploying to Another Machine
-
-1. Zip the entire `prism_organizer/` project folder
-2. Transfer to the target machine
-3. Unzip and run `setup.bat`
-4. Done! Use `prism-organizer` from any terminal
-
-The only requirement is **Python 3.8+** on the target machine.
+- **☁️ Cloud drive protection** — Auto-skips synced folders
+- **🤖 AI always suggests, never acts** — Classifications go through preview/confirm
 
 ## Project Structure
 
@@ -337,9 +217,11 @@ prism_organizer/
 ├── preview.py       # Dry-run preview UI
 ├── executor.py      # File operations + logging
 ├── undo.py          # Undo/rollback
-├── display.py       # Rich/colorama display abstraction
+├── display.py       # Rich-themed display layer
+├── interactive.py   # Arrow-key menus, checkboxes, wizards
+├── tui.py           # Interactive TUI dashboard
 ├── ai.py            # AI-powered classification & renaming
-├── watcher.py       # Real-time directory watcher + scheduler
+├── watcher.py       # Real-time watcher + scheduler
 └── utils.py         # Shared utilities
 ```
 

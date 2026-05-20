@@ -51,3 +51,7 @@ logs/
 
 # Zip file releases
 *.zip
+
+# Node / NPM
+node_modules/
+package-lock.json

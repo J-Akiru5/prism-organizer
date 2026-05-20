@@ -14,13 +14,23 @@ from prism_organizer.cleaner import CleanupPlan
 from prism_organizer.rules import RulePlan
 from prism_organizer.display import (
     display_header, display_table, display_info, display_warning,
-    display_success, display_confirm, display_operation_summary,
+    display_success, display_operation_summary,
 )
+from prism_organizer.interactive import interactive_confirm
 from prism_organizer.utils import format_size
 
 
 class Preview:
-    """Displays dry-run previews of planned operations."""
+    """Displays dry-run previews of planned operations.
+
+    Uses Rich panels/tables for display and arrow-key prompts for
+    confirmation when questionary is installed.
+    """
+
+    @staticmethod
+    def _confirm(prompt: str, default: bool = False) -> bool:
+        """Ask user for confirmation using arrow-key or text prompt."""
+        return interactive_confirm(prompt, default=default)
 
     def show_sort_preview(self, plan: SortPlan) -> bool:
         """Show a preview of sort operations and ask for confirmation."""
@@ -66,7 +76,7 @@ class Preview:
             rows=rows,
         )
 
-        return display_confirm("Execute these operations?")
+        return self._confirm("Execute these operations?")
 
     def show_cleanup_preview(self, plan: CleanupPlan) -> bool:
         """Show a preview of cleanup operations."""
@@ -107,7 +117,7 @@ class Preview:
             )
 
         print()
-        return display_confirm("Execute cleanup?")
+        return self._confirm("Execute cleanup?")
 
     def show_duplicates_preview(self, result: DuplicateResult) -> bool:
         """Show duplicate detection results and ask for cleanup confirmation."""
@@ -150,7 +160,7 @@ class Preview:
             display_info(f"... and {len(result.groups) - 10} more groups")
 
         print()
-        return display_confirm("Remove duplicate files? (originals are backed up)")
+        return self._confirm("Remove duplicate files? (originals are backed up)")
 
     def show_rules_preview(self, plan: RulePlan) -> bool:
         """Show preview of custom rule matches."""
@@ -201,4 +211,4 @@ class Preview:
                 display_warning(err)
 
         print()
-        return display_confirm("Execute rule actions?")
+        return self._confirm("Execute rule actions?")

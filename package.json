@@ -1,0 +1,51 @@
+{
+  "name": "prism-organizer",
+  "version": "1.1.0",
+  "description": "A beautiful CLI tool that scans, analyzes, and organizes files on Windows",
+  "license": "MIT",
+  "author": {
+    "name": "Jeff",
+    "url": "https://github.com/J-Akiru5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/J-Akiru5/prism-organizer.git"
+  },
+  "homepage": "https://github.com/J-Akiru5/prism-organizer#readme",
+  "bugs": {
+    "url": "https://github.com/J-Akiru5/prism-organizer/issues"
+  },
+  "keywords": [
+    "file-organizer",
+    "file-management",
+    "organizer",
+    "cli",
+    "sort",
+    "clean",
+    "duplicates",
+    "windows",
+    "prism"
+  ],
+  "bin": {
+    "prism-organizer": "./bin/prism-organizer.js"
+  },
+  "files": [
+    "bin/",
+    "prism_organizer/",
+    "setup.py",
+    "requirements.txt",
+    "config.example.yaml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "os": [
+    "win32"
+  ],
+  "preferGlobal": true,
+  "scripts": {
+    "postinstall": "node bin/prism-organizer.js --install"
+  }
+}

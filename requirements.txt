@@ -1,11 +1,10 @@
 PyYAML>=6.0
 colorama>=0.4.6
 tqdm>=4.66.0
+rich>=13.0
+questionary>=2.0
 
 # ── Optional dependencies ──────────────────────────────────────────
-# Rich terminal UI (recommended):
-#   pip install rich
-#
 # Perceptual image duplicate detection:
 #   pip install imagehash Pillow
 #
