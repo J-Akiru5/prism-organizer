@@ -25,25 +25,43 @@
 
 ### Installation
 
-**Option 1: One-click setup (Windows)**
-```
-Double-click setup.bat
-```
+Choose one of the following options to install:
 
-**Option 2: Manual install**
+#### Option 1: Direct from GitHub (Recommended)
+You do not need to download or clone the project manually. Simply install it directly via pip:
 ```bash
-pip install -e .
+pip install git+https://github.com/J-Akiru5/prism-organizer.git
 ```
 
-**Option 3: From another machine**
-1. Copy the entire `organizer/` folder to the target machine
-2. Run `setup.bat` or `pip install -e .`
+#### Option 2: Pre-packaged ZIP Release
+1. Download the release `prism-organizer.zip` file.
+2. Extract the ZIP file onto your machine.
+3. Double-click `setup.bat` to install it automatically (or run `pip install -e .` in your terminal inside the directory).
+
+#### Option 3: Clone the Repository (For Developers)
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/J-Akiru5/prism-organizer.git
+   ```
+2. Run `setup.bat` or run manual install:
+   ```bash
+   pip install -e .
+   ```
 
 ### Verify Installation
+Run either of these commands in your command prompt:
 ```bash
 prism-organizer --version
 prism-organizer --help
 ```
+
+> [!NOTE]
+> **PATH Troubleshooting**: If Windows shows a warning that the script is installed in a directory which is not on your `PATH` (or if the `prism-organizer` command is not recognized), you can run the tool directly using Python:
+> ```bash
+> python -m prism_organizer --help
+> ```
+> To fix the `prism-organizer` command permanently, add Python's `Scripts` directory (e.g., `C:\Users\<YourUsername>\AppData\Roaming\Python\Python313\Scripts`) to your system Environment Variables `PATH`.
+
 
 ## Usage
 
@@ -194,4 +212,5 @@ prism_organizer/
 
 ## License
 
-MIT License © 2026 Jeff
+MIT License © 2026 Syntaxure Labs
+

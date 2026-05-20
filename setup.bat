@@ -27,6 +27,19 @@ echo  ====================================
 echo   Installation Complete!
 echo  ====================================
 echo.
-echo  Run: prism-organizer --help
+where prism-organizer >nul 2>&1
+if errorlevel 1 (
+    echo  [WARNING] The 'prism-organizer' command is not on your system PATH.
+    echo  This is common on Windows if the Python Scripts directory is not configured.
+    echo.
+    echo  You can still run the tool directly using:
+    echo      python -m prism_organizer --help
+    echo.
+    echo  To run it as 'prism-organizer', add the Python Scripts directory to your PATH:
+    echo  e.g., %%APPDATA%%\Python\Python313\Scripts
+) else (
+    echo  Run: prism-organizer --help
+)
 echo.
 pause
+
