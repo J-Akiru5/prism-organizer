@@ -1,0 +1,84 @@
+# Prism Organizer Configuration
+# Copy this file to ~/.prism-organizer/config.yaml to customize
+
+# Default directories to organize (when no path is specified)
+# Cloud/backup drives (OneDrive, Google Drive, Dropbox, etc.) are
+# auto-detected and SKIPPED by default. The app will prompt you at
+# runtime if it finds any, letting you choose to skip or include them.
+default_paths:
+  - "~/Downloads"
+  - "~/Desktop"
+
+# Category mappings for sort-by-type
+categories:
+  Images:        [.jpg, .jpeg, .png, .gif, .bmp, .svg, .webp, .ico, .tiff, .heic]
+  Documents:     [.pdf, .doc, .docx, .txt, .rtf, .odt, .pages, .tex, .md]
+  Spreadsheets:  [.xlsx, .xls, .csv, .ods, .numbers]
+  Presentations: [.pptx, .ppt, .odp, .key]
+  Videos:        [.mp4, .avi, .mkv, .mov, .wmv, .flv, .webm]
+  Audio:         [.mp3, .wav, .flac, .aac, .ogg, .wma, .m4a]
+  Archives:      [.zip, .rar, .7z, .tar, .gz, .bz2, .xz]
+  Code:          [.py, .js, .ts, .java, .cpp, .c, .h, .cs, .go, .rs, .rb, .php, .html, .css]
+  Installers:    [.exe, .msi, .dmg, .deb, .rpm, .appimage]
+  Databases:     [.db, .sqlite, .accdb, .mdb, .sql]
+  Design:        [.psd, .ai, .fig, .sketch, .xd, .blend]
+  Fonts:         [.ttf, .otf, .woff, .woff2]
+  Misc:          []  # Catch-all for unmatched extensions
+
+# Temp/junk file patterns to auto-clean
+junk_patterns:
+  - "~$*"           # Word temp/lock files
+  - "*.crdownload"  # Incomplete Chrome downloads
+  - "*.tmp"
+  - "*.bak"
+  - "Thumbs.db"
+  - "desktop.ini"
+  - ".DS_Store"
+
+# Cloud/backup drive detection
+cloud_drives:
+  auto_detect: true
+  known_paths:
+    - "~/OneDrive"
+    - "~/Google Drive"
+    - "~/Dropbox"
+    - "~/iCloudDrive"
+    - "~/Box"
+    - "~/MEGA"
+    - "~/pCloudDrive"
+    - "~/WPS Cloud Files"
+    - "~/WPSDrive"
+  detect_from_registry: true
+
+# Installer detection
+installer_detection:
+  enabled: true
+  extensions: [.exe, .msi]
+  min_size: "50MB"
+  action: "suggest"
+  archive_path: "~/Archive/Installers/"
+
+# Screenshot auto-organization
+screenshot_rules:
+  enabled: true
+  source: "~/Pictures/Screenshots"
+  organize_by: "date"
+  date_format: "%Y/%B"
+
+# Duplicate handling
+duplicates:
+  method: "hash"
+  keep: "oldest"
+  min_size: "1MB"
+
+# Date sorting format
+date_format: "%Y/%B"
+
+# Custom rules (applied in order)
+custom_rules: []
+  # - name: "Move thesis PDFs"
+  #   match:
+  #     extension: .pdf
+  #     name_contains: "thesis"
+  #   action: move
+  #   destination: "~/Documents/Thesis/"
