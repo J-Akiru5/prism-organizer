@@ -18,7 +18,7 @@ Usage:
 import argparse
 import sys
 from pathlib import Path
-from typing import Optional, Set
+from typing import Any, Optional, Set
 
 from colorama import init as colorama_init
 
