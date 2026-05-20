@@ -18,8 +18,8 @@ from datetime import datetime
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from colorama import Fore, Style
 from tqdm import tqdm
 
 from prism_organizer.config import Config
@@ -181,6 +181,7 @@ class Scanner:
         target: str,
         recursive: bool = True,
         skip_dirs: Optional[Set[Path]] = None,
+        workers: Optional[int] = None,
     ) -> ScanResult:
         """Scan a directory and produce analysis results.
 
@@ -188,9 +189,8 @@ class Scanner:
 
         1. **Discovery** — walk the tree (or list the directory) to build a
            flat list of file paths while respecting *skip_dirs*.
-        2. **Analysis** — iterate over every discovered path with a
-           :pypi:`tqdm` progress bar, ``stat()`` each file, classify it, and
-           accumulate the results.
+        2. **Analysis** — analyse files in parallel using a thread pool
+           with a :pypi:`tqdm` progress bar.
 
         Args:
             target: Directory path to scan.  Tildes and environment
@@ -198,6 +198,8 @@ class Scanner:
             recursive: Whether to recurse into subdirectories.
             skip_dirs: Resolved :class:`Path` objects for directories that
                 should be pruned from the walk (e.g. cloud-sync roots).
+            workers: Number of worker threads. Defaults to
+                ``min(32, os.cpu_count() + 4)``.
 
         Returns:
             A :class:`ScanResult` populated with the full analysis.
@@ -252,71 +254,88 @@ class Scanner:
             else set()
         )
 
-        # -- Pass 2: analyse each file --------------------------------- #
-        for fpath in tqdm(
-            file_paths,
-            desc="  Analyzing files",
-            unit="file",
-            bar_format="  {l_bar}{bar:30}{r_bar}",
-        ):
-            try:
-                stat = fpath.stat()
-                ext = fpath.suffix.lower()
+        # -- Pass 2: analyse each file (parallel) ----------------------- #
+        if workers is None:
+            workers = min(32, (os.cpu_count() or 1) + 4)
 
-                file_info = FileInfo(
-                    path=fpath,
-                    name=fpath.name,
-                    extension=ext,
-                    size=stat.st_size,
-                    modified=datetime.fromtimestamp(stat.st_mtime),
-                    created=datetime.fromtimestamp(stat.st_ctime),
-                    is_uuid_named=is_uuid_filename(fpath.name),
-                    is_junk=self._is_junk(fpath.name),
-                    category=self.config.get_extension_category(ext),
-                )
+        file_infos: List[FileInfo] = []
+        error_list: List[str] = []
 
-                # Installer detection
-                if (
-                    installer_enabled
-                    and ext in installer_exts
-                    and stat.st_size >= installer_min_size
+        if workers > 1 and len(file_paths) > 100:
+            # Parallel analysis for large sets
+            chunk_size = max(1, len(file_paths) // workers)
+            chunks = [
+                file_paths[i : i + chunk_size]
+                for i in range(0, len(file_paths), chunk_size)
+            ]
+
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                futures = {
+                    executor.submit(
+                        self._analyze_chunk, chunk,
+                        installer_enabled, installer_min_size, installer_exts,
+                    ): chunk
+                    for chunk in chunks
+                }
+                for future in tqdm(
+                    as_completed(futures),
+                    total=len(futures),
+                    desc="  Analyzing files",
+                    unit="chunk",
+                    bar_format="  {l_bar}{bar:30}{r_bar}",
                 ):
-                    file_info.is_installer = True
-                    result.installer_files.append(file_info)
+                    try:
+                        chunk_infos, chunk_errors = future.result()
+                        file_infos.extend(chunk_infos)
+                        error_list.extend(chunk_errors)
+                    except Exception as e:
+                        error_list.append(f"Chunk analysis failed: {e}")
+        else:
+            # Sequential for small sets
+            for fpath in tqdm(
+                file_paths,
+                desc="  Analyzing files",
+                unit="file",
+                bar_format="  {l_bar}{bar:30}{r_bar}",
+            ):
+                fi, err = self._analyze_one(
+                    fpath, installer_enabled, installer_min_size, installer_exts,
+                )
+                if fi:
+                    file_infos.append(fi)
+                if err:
+                    error_list.append(err)
 
-                # Totals
-                result.total_files += 1
-                result.total_size += stat.st_size
+        # -- Merge results ---------------------------------------------- #
+        result.errors = error_list
 
-                # By extension
-                ext_bucket = _ensure_bucket(result.by_extension, ext)
-                ext_bucket["count"] += 1
-                ext_bucket["size"] += stat.st_size
+        for fi in file_infos:
+            result.total_files += 1
+            result.total_size += fi.size
 
-                # By category
-                cat_bucket = _ensure_bucket(result.by_category, file_info.category)
-                cat_bucket["count"] += 1
-                cat_bucket["size"] += stat.st_size
+            ext_bucket = _ensure_bucket(result.by_extension, fi.extension)
+            ext_bucket["count"] += 1
+            ext_bucket["size"] += fi.size
 
-                # Age bucket (YYYY-MM of last modification)
-                age_key = file_info.modified.strftime("%Y-%m")
-                age_bucket = _ensure_bucket(result.by_age, age_key)
-                age_bucket["count"] += 1
-                age_bucket["size"] += stat.st_size
+            cat_bucket = _ensure_bucket(result.by_category, fi.category)
+            cat_bucket["count"] += 1
+            cat_bucket["size"] += fi.size
 
-                # Track for duplicate detection
-                result.size_groups.setdefault(stat.st_size, []).append(file_info)
+            age_key = fi.modified.strftime("%Y-%m")
+            age_bucket = _ensure_bucket(result.by_age, age_key)
+            age_bucket["count"] += 1
+            age_bucket["size"] += fi.size
 
-                # Special detections
-                if file_info.is_junk:
-                    result.junk_files.append(file_info)
-                if file_info.is_uuid_named:
-                    result.uuid_files.append(file_info)
+            result.size_groups.setdefault(fi.size, []).append(fi)
 
-                result.files.append(file_info)
+            if fi.is_junk:
+                result.junk_files.append(fi)
+            if fi.is_uuid_named:
+                result.uuid_files.append(fi)
+            if fi.is_installer:
+                result.installer_files.append(fi)
 
-            except (OSError, PermissionError) as e:
-                result.errors.append(f"Could not access: {fpath} ({e})")
+            result.files.append(fi)
 
         # -- Post-processing ------------------------------------------- #
         result.largest_files = sorted(
@@ -332,93 +351,51 @@ class Scanner:
     def print_report(self, result: ScanResult, verbose: bool = False) -> None:
         """Print a formatted scan report to the terminal.
 
-        The report always includes:
-
-        * High-level summary (file count, total size, directory count).
-        * Category breakdown sorted by size descending.
-        * Top 10 largest files.
-        * Warnings / findings (duplicates, junk, UUID-named, installers).
-
-        When *verbose* is ``True`` the report additionally shows the top 25
-        file extensions by count.
-
-        Args:
-            result: A populated :class:`ScanResult` to render.
-            verbose: Include the per-extension breakdown table.
+        Uses Rich tables when the ``rich`` library is installed, falling
+        back to colorama-formatted output otherwise.
         """
-        print_header(f"SCAN REPORT: {result.target_dir}")
-
-        # -- Summary --------------------------------------------------- #
-        print(
-            f"\n  {Fore.WHITE}Total files:  "
-            f"{Fore.CYAN}{result.total_files:,}{Style.RESET_ALL}"
-        )
-        print(
-            f"  {Fore.WHITE}Total size:   "
-            f"{Fore.CYAN}{format_size(result.total_size)}{Style.RESET_ALL}"
-        )
-        print(
-            f"  {Fore.WHITE}Directories:  "
-            f"{Fore.CYAN}{result.total_dirs:,}{Style.RESET_ALL}"
+        from prism_organizer.display import (
+            display_header, display_success, display_warning, display_error,
+            display_info, display_table, display_findings,
+            display_scan_summary, display_category_table, display_top_files,
         )
 
-        # -- Category breakdown ---------------------------------------- #
-        print(f"\n  {Fore.WHITE}{'─' * 50}")
-        print(
-            f"  {Fore.CYAN}{'Category':<20} {'Count':>8} {'Size':>12}"
-            f"{Style.RESET_ALL}"
-        )
-        print(f"  {Fore.WHITE}{'─' * 50}")
+        display_header(f"SCAN REPORT: {result.target_dir}")
 
-        sorted_cats = sorted(
-            result.by_category.items(),
-            key=lambda x: x[1].get("size", 0),
-            reverse=True,
+        display_scan_summary(
+            result.target_dir,
+            result.total_files,
+            result.total_size,
+            result.total_dirs,
         )
-        for cat, info in sorted_cats:
-            count = info.get("count", 0)
-            size = info.get("size", 0)
-            print(
-                f"  {Fore.WHITE}{cat:<20} {count:>8,} "
-                f"{format_size(size):>12}"
-            )
 
-        # -- Extension breakdown (verbose only) ------------------------ #
+        display_category_table(result.by_category)
+
         if verbose:
-            print(f"\n  {Fore.WHITE}{'─' * 50}")
-            print(
-                f"  {Fore.CYAN}{'Extension':<15} {'Count':>8} "
-                f"{'Size':>12}{Style.RESET_ALL}"
-            )
-            print(f"  {Fore.WHITE}{'─' * 50}")
-
             sorted_exts = sorted(
                 result.by_extension.items(),
                 key=lambda x: x[1].get("count", 0),
                 reverse=True,
             )[:25]
-            for ext, info in sorted_exts:
-                ext_display = ext if ext else "(none)"
-                print(
-                    f"  {Fore.WHITE}{ext_display:<15} "
-                    f"{info.get('count', 0):>8,} "
-                    f"{format_size(info.get('size', 0)):>12}"
-                )
+            display_table(
+                title="Extension Breakdown (Top 25)",
+                columns=[
+                    {"header": "Extension", "width": 15},
+                    {"header": "Count", "justify": "right", "width": 10},
+                    {"header": "Size", "justify": "right", "width": 14},
+                ],
+                rows=[
+                    (ext if ext else "(none)",
+                     f"{info.get('count', 0):,}",
+                     format_size(info.get("size", 0)))
+                    for ext, info in sorted_exts
+                ],
+            )
 
-        # -- Largest files --------------------------------------------- #
-        print(f"\n  {Fore.WHITE}{'─' * 50}")
-        print(f"  {Fore.CYAN}Top 10 Largest Files{Style.RESET_ALL}")
-        print(f"  {Fore.WHITE}{'─' * 50}")
+        display_top_files(result.largest_files, limit=10)
 
-        for fi in result.largest_files[:10]:
-            size_str = format_size(fi.size)
-            name = fi.name[:40] + "..." if len(fi.name) > 40 else fi.name
-            print(f"  {Fore.WHITE}{size_str:>12}  {name}")
-
-        # -- Warnings / findings --------------------------------------- #
+        # Warnings / findings
         warnings: List[str] = []
-
-        # Duplicate candidates
         dupe_groups = {
             s: files
             for s, files in result.size_groups.items()
@@ -453,28 +430,98 @@ class Scanner:
                 f"({format_size(inst_size)}) — likely already installed"
             )
 
-        if warnings:
-            print(f"\n  {Fore.WHITE}{'─' * 50}")
-            print(f"  {Fore.YELLOW}⚠  Findings{Style.RESET_ALL}")
-            print(f"  {Fore.WHITE}{'─' * 50}")
-            for w in warnings:
-                print_warning(w)
+        display_findings(warnings)
 
-        # -- Errors ---------------------------------------------------- #
         if result.errors:
-            print(
-                f"\n  {Fore.RED}Errors: {len(result.errors)} files could "
-                f"not be accessed{Style.RESET_ALL}"
+            display_error(
+                f"{len(result.errors)} files could not be accessed"
             )
             if verbose:
                 for err in result.errors[:10]:
-                    print_error(err)
+                    display_error(err)
 
-        print()
+        if not warnings and not result.errors:
+            print()
 
     # ------------------------------------------------------------------ #
     # Internal helpers
     # ------------------------------------------------------------------ #
+
+    def _analyze_one(
+        self,
+        fpath: Path,
+        installer_enabled: bool,
+        installer_min_size: int,
+        installer_exts: Set[str],
+    ) -> Tuple[Optional[FileInfo], Optional[str]]:
+        """Analyse a single file and return a FileInfo or error.
+
+        Args:
+            fpath: Absolute path to the file.
+            installer_enabled: Whether installer detection is active.
+            installer_min_size: Minimum size in bytes for installer detection.
+            installer_exts: Set of extensions that trigger installer detection.
+
+        Returns:
+            Tuple of ``(file_info, error_string)``.  Exactly one will
+            be *None* for each call.
+        """
+        try:
+            stat = fpath.stat()
+            ext = fpath.suffix.lower()
+
+            file_info = FileInfo(
+                path=fpath,
+                name=fpath.name,
+                extension=ext,
+                size=stat.st_size,
+                modified=datetime.fromtimestamp(stat.st_mtime),
+                created=datetime.fromtimestamp(stat.st_ctime),
+                is_uuid_named=is_uuid_filename(fpath.name),
+                is_junk=self._is_junk(fpath.name),
+                category=self.config.get_extension_category(ext),
+            )
+
+            if (
+                installer_enabled
+                and ext in installer_exts
+                and stat.st_size >= installer_min_size
+            ):
+                file_info.is_installer = True
+
+            return file_info, None
+        except (OSError, PermissionError) as e:
+            return None, f"Could not access: {fpath} ({e})"
+
+    def _analyze_chunk(
+        self,
+        chunk: List[Path],
+        installer_enabled: bool,
+        installer_min_size: int,
+        installer_exts: Set[str],
+    ) -> Tuple[List[FileInfo], List[str]]:
+        """Analyse a chunk of file paths (called from worker threads).
+
+        Args:
+            chunk: List of file paths to analyse.
+            installer_enabled: Whether installer detection is active.
+            installer_min_size: Minimum size in bytes for installer detection.
+            installer_exts: Set of extensions that trigger installer detection.
+
+        Returns:
+            Tuple of ``(file_infos, errors)`` for this chunk.
+        """
+        infos: List[FileInfo] = []
+        errs: List[str] = []
+        for fpath in chunk:
+            fi, err = self._analyze_one(
+                fpath, installer_enabled, installer_min_size, installer_exts,
+            )
+            if fi:
+                infos.append(fi)
+            if err:
+                errs.append(err)
+        return infos, errs
 
     def _is_junk(self, filename: str) -> bool:
         """Check if *filename* matches any configured junk pattern.

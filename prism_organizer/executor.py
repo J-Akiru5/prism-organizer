@@ -20,7 +20,7 @@ from prism_organizer.duplicates import DuplicateResult
 from prism_organizer.cleaner import CleanupPlan
 from prism_organizer.rules import RulePlan
 from prism_organizer.utils import (
-    get_logs_dir, get_backup_dir, format_size,
+    get_logs_dir, get_backup_dir, format_size, expand_path,
     print_success, print_error, print_warning, print_info,
 )
 
@@ -66,7 +66,8 @@ class ExecutionLog:
 class Executor:
     """Executes file operations with logging and backup support."""
 
-    def __init__(self):
+    def __init__(self, config: Optional[Any] = None):
+        self.config = config
         self._log = ExecutionLog(
             timestamp=datetime.now().isoformat(),
         )
@@ -98,6 +99,13 @@ class Executor:
         self._log.target_dir = str(target_dir)
         backup_dir = get_backup_dir(target_dir)
         
+        installer_config = self.config.installer_detection if self.config else {}
+        archive_dir_parent = (
+            expand_path(installer_config.get("archive_path", "~/Archive/Installers/"))
+            if installer_config
+            else backup_dir
+        )
+        
         print_info(f"Executing cleanup ({plan.total_items} items)...")
         
         for item in tqdm(plan.items, desc="  Cleaning", unit="item",
@@ -109,10 +117,7 @@ class Executor:
             if item.action == "delete":
                 self._delete_file(item.path, backup_dir)
             elif item.action == "archive":
-                archive_path = Path(self.config.installer_detection.get(
-                    "archive_path", "~/Archive/Installers/"
-                )) if hasattr(self, 'config') else backup_dir
-                self._move_file(item.path, archive_path / item.path.name)
+                self._move_file(item.path, archive_dir_parent / item.path.name)
         
         self._save_log()
         

@@ -1,3 +1,16 @@
 PyYAML>=6.0
 colorama>=0.4.6
 tqdm>=4.66.0
+
+# ── Optional dependencies ──────────────────────────────────────────
+# Rich terminal UI (recommended):
+#   pip install rich
+#
+# Perceptual image duplicate detection:
+#   pip install imagehash Pillow
+#
+# AI-powered classification & renaming:
+#   pip install openai
+#
+# Real-time directory watching:
+#   pip install watchdog

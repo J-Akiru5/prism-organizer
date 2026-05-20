@@ -70,9 +70,27 @@ duplicates:
   method: "hash"
   keep: "oldest"
   min_size: "1MB"
+  perceptual_threshold: 5  # Hamming distance for perceptual (near-duplicate) images
 
 # Date sorting format
 date_format: "%Y/%B"
+
+# AI-powered classification and renaming (requires: pip install openai)
+ai:
+  enabled: false
+  provider: "openai"     # openai, ollama, or lmstudio
+  model: "gpt-4o-mini"
+  api_key: ""            # or set OPENAI_API_KEY env var
+  base_url: ""           # override for local servers (e.g. http://localhost:11434/v1)
+  features:
+    classify_unknown: true   # Suggest categories for unknown file extensions
+    smart_rename: false      # Generate descriptive filenames for auto-named files
+  min_confidence: 0.7
+
+# Real-time directory watcher
+watcher:
+  cooldown_seconds: 10       # Minimum time between triggered actions
+  min_file_age_seconds: 5    # Wait until file stops changing before acting
 
 # Custom rules (applied in order)
 custom_rules: []

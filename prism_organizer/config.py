@@ -78,6 +78,18 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     },
     "date_format": "%Y/%B",
     "custom_rules": [],
+    "ai": {
+        "enabled": False,
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "api_key": "",
+        "base_url": "",
+        "features": {
+            "classify_unknown": True,
+            "smart_rename": False,
+        },
+        "min_confidence": 0.7,
+    },
 }
 
 
@@ -130,9 +142,9 @@ class Config:
     def _load(self) -> None:
         """Load configuration from YAML file, merging with defaults.
 
-        If the file does not exist or cannot be parsed, the instance
-        silently falls back to ``DEFAULT_CONFIG`` (a warning is printed
-        on parse/IO errors).
+        If the file does not exist, it is created from defaults.
+        If the file cannot be parsed, the instance falls back to
+        ``DEFAULT_CONFIG``.
         """
         if self._config_path.exists():
             try:
@@ -142,6 +154,8 @@ class Config:
             except (yaml.YAMLError, OSError) as e:
                 print(f"Warning: Could not load config from {self._config_path}: {e}")
                 print("Using default configuration.")
+        else:
+            self.init_config()
 
     def _deep_merge(self, base: dict, override: dict) -> None:
         """Deep merge *override* dict into *base* dict (in-place).
@@ -231,6 +245,11 @@ class Config:
     def custom_rules(self) -> List[Dict[str, Any]]:
         """User-defined custom organisation rules."""
         return self._data.get("custom_rules", [])
+
+    @property
+    def ai_config(self) -> Dict[str, Any]:
+        """AI integration settings (provider, model, features)."""
+        return self._data.get("ai", {})
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a top-level config value by key.

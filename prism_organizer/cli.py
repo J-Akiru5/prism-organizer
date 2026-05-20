@@ -9,6 +9,9 @@ Usage:
     prism-organizer clean <path>         - Clean junk/temp files
     prism-organizer rules <path>         - Apply custom rules
     prism-organizer undo                 - Undo last operation
+    prism-organizer ai-classify <path>   - AI-powered category suggestions
+    prism-organizer watch <path>         - Watch directory for changes
+    prism-organizer schedule [add|list|remove]  - Manage scheduled tasks
 """
 
 import argparse
@@ -29,6 +32,12 @@ from prism_organizer.cloud_drives import CloudDriveDetector
 from prism_organizer.preview import Preview
 from prism_organizer.executor import Executor
 from prism_organizer.undo import UndoManager
+from prism_organizer.ai import AIEngine
+from prism_organizer.watcher import DirectoryWatcher, TaskScheduler
+from prism_organizer.display import (
+    display_header, display_table, display_info, display_warning,
+    display_success, display_confirm,
+)
 from prism_organizer.utils import (
     expand_path, print_header, print_success, print_error,
     print_warning, print_info, APP_NAME,
@@ -51,10 +60,15 @@ def create_parser() -> argparse.ArgumentParser:
   prism-organizer sort ~/Downloads --by type
   prism-organizer sort ~/Downloads --by date
   prism-organizer dupes ~/Downloads
-  prism-organizer dupes ~/Downloads --clean
+  prism-organizer dupes ~/Downloads --clean --perceptual
   prism-organizer clean ~/Downloads
   prism-organizer rules ~/Downloads
   prism-organizer undo
+  prism-organizer ai-classify ~/Downloads
+  prism-organizer ai-classify ~/Downloads --rename
+  prism-organizer watch ~/Downloads
+  prism-organizer schedule add ~/Downloads --command sort --interval daily
+  prism-organizer schedule list
 """,
     )
     parser.add_argument(
@@ -68,6 +82,10 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--verbose", "-v", action="store_true",
         help="Enable verbose output",
+    )
+    parser.add_argument(
+        "--workers", "-w", type=int, default=None,
+        help="Number of worker threads (default: CPU count)",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -90,6 +108,7 @@ def create_parser() -> argparse.ArgumentParser:
     dupes_parser.add_argument("path", help="Directory to check")
     dupes_parser.add_argument("--clean", action="store_true", help="Prompt to remove duplicates")
     dupes_parser.add_argument("--recursive", action=argparse.BooleanOptionalAction, default=True)
+    dupes_parser.add_argument("--perceptual", action="store_true", help="Also find visually similar images (requires imagehash)")
 
     # clean
     clean_parser = subparsers.add_parser("clean", help="Clean junk/temp files")
@@ -108,6 +127,33 @@ def create_parser() -> argparse.ArgumentParser:
     # undo
     undo_parser = subparsers.add_parser("undo", help="Undo last operation")
     undo_parser.add_argument("--list", action="store_true", help="List recent operations")
+
+    # ai-classify
+    ai_parser = subparsers.add_parser("ai-classify", help="Use AI to suggest categories for unknown files")
+    ai_parser.add_argument("path", help="Directory to analyze")
+    ai_parser.add_argument("--recursive", action=argparse.BooleanOptionalAction, default=True)
+    ai_parser.add_argument("--rename", action="store_true", help="Also suggest smart renames")
+
+    # watch
+    watch_parser = subparsers.add_parser("watch", help="Watch directories for changes and auto-organize")
+    watch_parser.add_argument("path", help="Directory to watch")
+    watch_parser.add_argument("--action", choices=["sort", "clean", "all"], default="sort",
+                              help="Action to trigger (default: sort)")
+
+    # schedule
+    sched_parser = subparsers.add_parser("schedule", help="Manage scheduled tasks (Windows Task Scheduler)")
+    sched_sub = sched_parser.add_subparsers(dest="schedule_cmd")
+
+    sched_add = sched_sub.add_parser("add", help="Add a scheduled task")
+    sched_add.add_argument("path", help="Directory to operate on")
+    sched_add.add_argument("--command", choices=["scan", "sort", "clean", "rules"],
+                           default="sort", help="Command to run")
+    sched_add.add_argument("--interval", choices=["daily", "weekly", "hourly"],
+                           default="daily", help="Schedule interval")
+    sched_add.add_argument("--at", default="09:00", help="Time to run (HH:MM, 24h)")
+
+    sched_sub.add_parser("list", help="List scheduled tasks")
+    sched_sub.add_parser("remove", help="Remove a scheduled task")
 
     return parser
 
@@ -151,6 +197,7 @@ def cmd_scan(args: argparse.Namespace, config: Config) -> None:
         target=args.path,
         recursive=args.recursive,
         skip_dirs=skip_dirs,
+        workers=args.workers,
     )
     scanner.print_report(result, verbose=args.verbose)
 
@@ -174,6 +221,7 @@ def cmd_sort(args: argparse.Namespace, config: Config) -> None:
         target=args.path,
         recursive=False,  # Sort only scans top-level for safety
         skip_dirs=skip_dirs,
+        workers=args.workers,
     )
 
     sorter = Sorter(config)
@@ -188,7 +236,7 @@ def cmd_sort(args: argparse.Namespace, config: Config) -> None:
 
     preview = Preview()
     if args.confirm or preview.show_sort_preview(plan):
-        executor = Executor()
+        executor = Executor(config)
         executor.execute_sort(plan)
     else:
         print_info("Operation cancelled.")
@@ -199,7 +247,8 @@ def cmd_dupes(args: argparse.Namespace, config: Config) -> None:
 
     Finds duplicate files using content hashing and displays a report.
     When --clean is specified, prompts the user to select which
-    duplicates to remove.
+    duplicates to remove.  When --perceptual is specified, also finds
+    visually similar (but not byte-identical) images.
 
     Args:
         args: Parsed command-line arguments containing path and options.
@@ -212,17 +261,26 @@ def cmd_dupes(args: argparse.Namespace, config: Config) -> None:
         target=args.path,
         recursive=args.recursive,
         skip_dirs=skip_dirs,
+        workers=args.workers,
     )
 
     detector = DuplicateDetector(config)
-    result = detector.find_duplicates(scan_result)
+    result = detector.find_duplicates(scan_result, workers=args.workers)
+
+    # Perceptual (near-duplicate image) detection
+    if args.perceptual:
+        perceptual_config = config.duplicates_config
+        threshold = perceptual_config.get("perceptual_threshold", 5)
+        result.perceptual_groups = detector.find_perceptual_duplicates(
+            scan_result, threshold=threshold, workers=args.workers,
+        )
 
     detector.print_report(result)
 
     if args.clean and result.has_duplicates:
         preview = Preview()
         if preview.show_duplicates_preview(result):
-            executor = Executor()
+            executor = Executor(config)
             executor.execute_duplicate_cleanup(result, expand_path(args.path))
 
 
@@ -244,6 +302,7 @@ def cmd_clean(args: argparse.Namespace, config: Config) -> None:
         target=args.path,
         recursive=args.recursive,
         skip_dirs=skip_dirs,
+        workers=args.workers,
     )
 
     cleaner = Cleaner(config)
@@ -255,7 +314,7 @@ def cmd_clean(args: argparse.Namespace, config: Config) -> None:
 
     preview = Preview()
     if args.confirm or preview.show_cleanup_preview(plan):
-        executor = Executor()
+        executor = Executor(config)
         executor.execute_cleanup(plan, expand_path(args.path))
     else:
         print_info("Operation cancelled.")
@@ -284,6 +343,7 @@ def cmd_rules(args: argparse.Namespace, config: Config) -> None:
         target=args.path,
         recursive=args.recursive,
         skip_dirs=skip_dirs,
+        workers=args.workers,
     )
 
     engine = RuleEngine(config)
@@ -295,7 +355,7 @@ def cmd_rules(args: argparse.Namespace, config: Config) -> None:
 
     preview = Preview()
     if args.confirm or preview.show_rules_preview(plan):
-        executor = Executor()
+        executor = Executor(config)
         executor.execute_rules(plan, expand_path(args.path))
     else:
         print_info("Operation cancelled.")
@@ -332,6 +392,261 @@ def cmd_undo(args: argparse.Namespace, config: Config) -> None:
     manager.undo_last()
 
 
+def cmd_ai_classify(args: argparse.Namespace, config: Config) -> None:
+    """Execute the ai-classify command.
+
+    Scans the target directory and uses AI to suggest categories for
+    files with unknown extensions.  With --rename, also suggests
+    descriptive filenames for auto-generated names.
+    """
+    if not config.ai_config.get("enabled", False):
+        print_warning(
+            "AI features are disabled.  Enable them in "
+            f"{config._config_path} under the 'ai:' section."
+        )
+        return
+
+    engine = AIEngine(config)
+
+    if not engine.provider.check_available():
+        print_warning(
+            "The 'openai' package is required for AI features.  "
+            "Install with: pip install openai"
+        )
+        return
+
+    skip_dirs = _detect_cloud_drives(config)
+
+    scanner = Scanner(config)
+    scan_result = scanner.scan(
+        target=args.path,
+        recursive=args.recursive,
+        skip_dirs=skip_dirs,
+        workers=args.workers,
+    )
+
+    # Classify unknown files
+    if engine.provider.classify_enabled:
+        misc_files = [fi for fi in scan_result.files if fi.category == "Misc"]
+        if misc_files:
+            print_info(f"AI classifying {len(misc_files)} unknown files...")
+            classifications = engine.classify_unknown(scan_result.files)
+
+            high_confidence = [
+                c for c in classifications
+                if c.confidence >= engine.provider.min_confidence
+                and c.suggested_category != c.file_info.category
+            ]
+            low_confidence = [
+                c for c in classifications
+                if c not in high_confidence
+            ]
+
+            if high_confidence:
+                display_header("AI CLASSIFICATION SUGGESTIONS")
+
+                rows = []
+                for c in high_confidence:
+                    rows.append((
+                        c.file_info.name,
+                        f"{c.file_info.category} -> {c.suggested_category}",
+                        f"{c.confidence:.0%}",
+                        c.reasoning[:60],
+                    ))
+
+                display_table(
+                    title=f"Suggested Reclassifications "
+                          f"(confidence >= {engine.provider.min_confidence:.0%})",
+                    columns=[
+                        {"header": "File", "width": 35},
+                        {"header": "Suggestion", "width": 30},
+                        {"header": "Confidence", "justify": "right", "width": 12},
+                        {"header": "Reasoning", "width": 40},
+                    ],
+                    rows=rows,
+                )
+
+                if display_confirm("Apply these reclassifications?"):
+                    executor = Executor(config)
+                    plan = _build_classification_plan(
+                        high_confidence, scan_result.target_dir,
+                    )
+                    executor.execute_rules(plan, expand_path(args.path))
+
+            if low_confidence:
+                display_info(
+                    f"{len(low_confidence)} files had low-confidence or "
+                    f"unchanged suggestions (skipped)"
+                )
+        else:
+            display_success("No unknown files to classify.")
+
+    # Smart rename
+    if args.rename and engine.provider.rename_enabled:
+        renames = engine.suggest_renames(scan_result.files)
+
+        if renames:
+            display_header("AI RENAME SUGGESTIONS")
+            rows = []
+            for r in renames:
+                rows.append((
+                    r.file_info.name,
+                    r.new_name + r.file_info.extension,
+                    r.reasoning[:60],
+                ))
+            display_table(
+                title="Suggested Renames",
+                columns=[
+                    {"header": "Current", "width": 35},
+                    {"header": "Suggested", "width": 35},
+                    {"header": "Reasoning", "width": 40},
+                ],
+                rows=rows,
+            )
+
+            if display_confirm("Apply these renames?"):
+                executor = Executor(config)
+                plan = _build_rename_plan(renames)
+                executor.execute_rules(plan, expand_path(args.path))
+        else:
+            display_success("No files to rename.")
+
+
+def _build_classification_plan(
+    classifications: list,
+    target_dir: Path,
+) -> Any:
+    """Build a temporary RulePlan from AI classifications."""
+    from prism_organizer.rules import RulePlan, RuleMatch
+    from prism_organizer.utils import safe_filename
+
+    plan = RulePlan()
+    for c in classifications:
+        dest_dir = target_dir / c.suggested_category
+        dest = safe_filename(dest_dir, c.file_info.name)
+        plan.matches.append(RuleMatch(
+            file_info=c.file_info,
+            rule_name="AI Classification",
+            action="move",
+            destination=dest,
+        ))
+    return plan
+
+
+def _build_rename_plan(renames: list) -> Any:
+    """Build a temporary RulePlan from AI rename suggestions."""
+    from prism_organizer.rules import RulePlan, RuleMatch
+
+    plan = RulePlan()
+    for r in renames:
+        new_name = r.new_name + r.file_info.extension
+        plan.matches.append(RuleMatch(
+            file_info=r.file_info,
+            rule_name="AI Rename",
+            action="rename",
+            new_name=new_name,
+        ))
+    return plan
+
+
+def cmd_watch(args: argparse.Namespace, config: Config) -> None:
+    """Execute the watch command.
+
+    Monitors a directory in real-time and triggers file organization
+    when new files appear.
+
+    Args:
+        args: Parsed command-line arguments.
+        config: Application configuration instance.
+    """
+    actions = ["sort"] if args.action == "sort" else (
+        ["clean"] if args.action == "clean" else ["sort", "clean"]
+    )
+
+    def _on_change(watch_path: Path, act: List[str]) -> None:
+        print_info(f"Triggering {'/'.join(act)} on {watch_path}")
+        from prism_organizer.scanner import Scanner
+        from prism_organizer.sorter import Sorter
+        from prism_organizer.cleaner import Cleaner
+        from prism_organizer.executor import Executor
+        from prism_organizer.preview import Preview
+
+        scanner = Scanner(config)
+        scan_result = scanner.scan(target=str(watch_path), recursive=False)
+
+        if "sort" in act:
+            sorter = Sorter(config)
+            plan = sorter.plan_sort_by_type(scan_result)
+            if plan.total_files > 0:
+                executor = Executor(config)
+                executor.execute_sort(plan)
+
+        if "clean" in act:
+            cleaner = Cleaner(config)
+            plan = cleaner.plan_cleanup(scan_result)
+            if plan.total_items > 0:
+                preview = Preview()
+                if preview.show_cleanup_preview(plan):
+                    executor = Executor(config)
+                    executor.execute_cleanup(plan, watch_path)
+
+    watcher = DirectoryWatcher(config)
+    watcher.add_directory(args.path, actions=actions)
+    watcher.set_callback(_on_change)
+    watcher.start()
+
+
+def cmd_schedule(args: argparse.Namespace, config: Config) -> None:
+    """Execute the schedule command.
+
+    Manages Windows Task Scheduler entries for periodic file
+    organization.
+
+    Args:
+        args: Parsed command-line arguments.
+        config: Application configuration instance.
+    """
+    sched = TaskScheduler()
+
+    sub = args.schedule_cmd
+    if sub == "add":
+        sched.add_task(
+            path=args.path,
+            command=args.command,
+            interval=args.interval,
+            time_str=args.at,
+        )
+    elif sub == "list":
+        tasks = sched.list_tasks()
+        if not tasks:
+            print_info("No scheduled tasks found.")
+            return
+        print_header("SCHEDULED TASKS")
+        for t in tasks:
+            print(f"  {t['name']}")
+            print(f"    Next run: {t['next_run']} | Status: {t['status']}")
+        print()
+    elif sub == "remove":
+        tasks = sched.list_tasks()
+        if not tasks:
+            print_info("No scheduled tasks to remove.")
+            return
+        print_header("SELECT TASK TO REMOVE")
+        for i, t in enumerate(tasks, 1):
+            print(f"  {i}. {t['name']}")
+        print()
+        try:
+            choice = input("  Enter number (or Enter to cancel): ").strip()
+        except (KeyboardInterrupt, EOFError):
+            return
+        if choice.isdigit():
+            idx = int(choice) - 1
+            if 0 <= idx < len(tasks):
+                sched.remove_task(tasks[idx]["name"])
+    else:
+        print_info("Use: prism-organizer schedule [add|list|remove]")
+
+
 def main() -> None:
     """Main entry point for the CLI.
 
@@ -360,6 +675,9 @@ def main() -> None:
         "clean": cmd_clean,
         "rules": cmd_rules,
         "undo": cmd_undo,
+        "ai-classify": cmd_ai_classify,
+        "watch": cmd_watch,
+        "schedule": cmd_schedule,
     }
 
     handler = commands.get(args.command)
