@@ -673,7 +673,10 @@ def main() -> None:
     args = parser.parse_args()
 
     if not args.command:
-        parser.print_help()
+        # Default: launch the interactive TUI dashboard
+        config = Config(config_path=args.config)
+        display_splash()
+        run_tui(config)
         sys.exit(0)
 
     # Load config
