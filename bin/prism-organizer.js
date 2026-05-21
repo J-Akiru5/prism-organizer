@@ -212,7 +212,7 @@ async function main() {
   const binary = await downloadBinary();
 
   if (binary) {
-    const child = spawn(binary, args, { stdio: "inherit", shell: true });
+    const child = spawn(binary, args, { stdio: "inherit" });
     child.on("close", (code) => process.exit(code));
     child.on("error", () => {
       // Binary corrupt — delete and retry
@@ -235,7 +235,6 @@ async function main() {
 
   const child = spawn(PYTHON_CMD, ["-u", "-m", PACKAGE_MODULE, ...args], {
     stdio: "inherit",
-    shell: true,
   });
   child.on("close", (code) => process.exit(code));
   child.on("error", (err) => {
