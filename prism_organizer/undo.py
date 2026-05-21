@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import List, Optional
 
 from colorama import Fore, Style
-from tqdm import tqdm
 
+from prism_organizer.display import display_progress
 from prism_organizer.utils import (
     get_logs_dir, print_header, print_success, print_error,
     print_warning, print_info, confirm_action,
@@ -91,8 +91,9 @@ class UndoManager:
         success_count = 0
         error_count = 0
         
-        for op in tqdm(reversed(ops), total=len(ops), desc="  Undoing", unit="op",
-                       bar_format="  {l_bar}{bar:30}{r_bar}"):
+        for op in display_progress(
+            reversed(ops), total=len(ops), desc="Undoing",
+        ):
             try:
                 action = op.get("action")
                 

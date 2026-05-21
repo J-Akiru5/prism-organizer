@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from tqdm import tqdm
+from prism_organizer.display import display_progress
 
 from prism_organizer.config import Config
 from prism_organizer.utils import (
@@ -190,7 +190,7 @@ class Scanner:
         1. **Discovery** — walk the tree (or list the directory) to build a
            flat list of file paths while respecting *skip_dirs*.
         2. **Analysis** — analyse files in parallel using a thread pool
-           with a :pypi:`tqdm` progress bar.
+           with a Rich progress bar.
 
         Args:
             target: Directory path to scan.  Tildes and environment
@@ -277,12 +277,10 @@ class Scanner:
                     ): chunk
                     for chunk in chunks
                 }
-                for future in tqdm(
+                for future in display_progress(
                     as_completed(futures),
                     total=len(futures),
-                    desc="  Analyzing files",
-                    unit="chunk",
-                    bar_format="  {l_bar}{bar:30}{r_bar}",
+                    desc="Analyzing files",
                 ):
                     try:
                         chunk_infos, chunk_errors = future.result()
@@ -292,11 +290,9 @@ class Scanner:
                         error_list.append(f"Chunk analysis failed: {e}")
         else:
             # Sequential for small sets
-            for fpath in tqdm(
+            for fpath in display_progress(
                 file_paths,
-                desc="  Analyzing files",
-                unit="file",
-                bar_format="  {l_bar}{bar:30}{r_bar}",
+                desc="Analyzing files",
             ):
                 fi, err = self._analyze_one(
                     fpath, installer_enabled, installer_min_size, installer_exts,

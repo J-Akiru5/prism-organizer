@@ -14,10 +14,10 @@ from typing import Callable, Dict, List, Optional, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from colorama import Fore, Style
-from tqdm import tqdm
 
 from prism_organizer.config import Config
 from prism_organizer.scanner import FileInfo, ScanResult
+from prism_organizer.display import display_progress
 from prism_organizer.utils import (
     format_size, parse_size,
     print_header, print_warning, print_info, print_success,
@@ -222,8 +222,7 @@ class DuplicateDetector:
                 desc="  Partial hash", key_prefix="size",
             )
         else:
-            for fi in tqdm(all_candidates, desc="  Partial hash", unit="file",
-                           bar_format="  {l_bar}{bar:30}{r_bar}"):
+            for fi in display_progress(all_candidates, desc="Partial hash"):
                 try:
                     h = self._partial_hash(fi.path)
                     key = f"{fi.size}:{h}"
@@ -252,8 +251,7 @@ class DuplicateDetector:
                 desc="  Full hash",
             )
         else:
-            for fi in tqdm(remaining, desc="  Full hash", unit="file",
-                           bar_format="  {l_bar}{bar:30}{r_bar}"):
+            for fi in display_progress(remaining, desc="Full hash"):
                 try:
                     h = self._full_hash(fi.path)
                     full_groups.setdefault(h, []).append(fi)
@@ -366,7 +364,7 @@ class DuplicateDetector:
             hash_func: Hash function accepting a ``Path`` and returning
                 a hex digest string.
             workers: Number of threads in the pool.
-            desc: Label for the tqdm progress bar.
+            desc: Label for the progress bar.
             key_prefix: Optional prefix for the grouping key (used by
                 partial hashing to prepend the file size).
 
@@ -380,12 +378,10 @@ class DuplicateDetector:
                 executor.submit(hash_func, fi.path): fi
                 for fi in file_infos
             }
-            for future in tqdm(
+            for future in display_progress(
                 as_completed(future_map),
                 total=len(future_map),
                 desc=desc,
-                unit="file",
-                bar_format="  {l_bar}{bar:30}{r_bar}",
             ):
                 fi = future_map[future]
                 try:
@@ -466,12 +462,10 @@ class DuplicateDetector:
                 executor.submit(_compute_phash, fi): fi
                 for fi in image_files
             }
-            for future in tqdm(
+            for future in display_progress(
                 as_completed(futures),
                 total=len(futures),
-                desc="  Perceptual hash",
-                unit="file",
-                bar_format="  {l_bar}{bar:30}{r_bar}",
+                desc="Perceptual hash",
             ):
                 filepath, phash = future.result()
                 if phash is not None:

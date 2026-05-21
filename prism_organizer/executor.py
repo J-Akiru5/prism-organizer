@@ -12,12 +12,11 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from tqdm import tqdm
-
 from prism_organizer.sorter import SortPlan
 from prism_organizer.duplicates import DuplicateResult
 from prism_organizer.cleaner import CleanupPlan
 from prism_organizer.rules import RulePlan
+from prism_organizer.display import display_progress
 from prism_organizer.utils import (
     get_logs_dir, get_backup_dir, format_size, expand_path,
     print_success, print_error, print_warning, print_info,
@@ -78,8 +77,7 @@ class Executor:
         
         print_info(f"Executing sort ({plan.total_files} files)...")
         
-        for op in tqdm(plan.operations, desc="  Moving files", unit="file",
-                       bar_format="  {l_bar}{bar:30}{r_bar}"):
+        for op in display_progress(plan.operations, desc="Moving files"):
             self._move_file(op.source, op.destination)
         
         self._save_log()
@@ -107,8 +105,7 @@ class Executor:
         
         print_info(f"Executing cleanup ({plan.total_items} items)...")
         
-        for item in tqdm(plan.items, desc="  Cleaning", unit="item",
-                         bar_format="  {l_bar}{bar:30}{r_bar}"):
+        for item in display_progress(plan.items, desc="Cleaning"):
             if item.action == "suggest":
                 # Suggestions are just informational, skip
                 continue
@@ -136,8 +133,7 @@ class Executor:
         
         removable_files = [fi for g in result.groups for fi in g.removable]
         
-        for fi in tqdm(removable_files, desc="  Removing dupes", unit="file",
-                       bar_format="  {l_bar}{bar:30}{r_bar}"):
+        for fi in display_progress(removable_files, desc="Removing dupes"):
             self._delete_file(fi.path, backup_dir)
         
         self._save_log()
@@ -156,8 +152,7 @@ class Executor:
         
         print_info(f"Executing {plan.total_matches} rule actions...")
         
-        for match in tqdm(plan.matches, desc="  Applying rules", unit="file",
-                          bar_format="  {l_bar}{bar:30}{r_bar}"):
+        for match in display_progress(plan.matches, desc="Applying rules"):
             try:
                 if match.action == "move":
                     if match.destination:

@@ -17,7 +17,7 @@ def read_requirements():
             for line in requirements_path.read_text(encoding="utf-8").splitlines()
             if line.strip() and not line.startswith("#")
         ]
-    return ["PyYAML", "colorama", "tqdm"]
+    return ["PyYAML", "colorama", "rich", "questionary"]
 
 
 setup(
