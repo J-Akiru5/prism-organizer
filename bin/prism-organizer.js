@@ -2,10 +2,10 @@
 
 /**
  * Prism Organizer — Node.js wrapper
- * 
+ *
  * Checks for Python + prism-organizer installation, handles the
  * `--install` postinstall hook, and proxies all CLI arguments.
- * 
+ *
  * With --with-binary: downloads a PyInstaller-built .exe instead of
  * using Python.
  */
@@ -57,10 +57,12 @@ function hasPython() {
  */
 function hasPipPackage() {
   try {
-    const out = execSync(`${PYTHON_CMD} -m pip list`, {
+    const out = execSync(`${PYTHON_CMD} -m pip list --format=columns`, {
       encoding: "utf-8",
     });
-    return out.includes(PACKAGE_NAME);
+    // Match the exact package name at the start of a line to avoid
+    // false positives from packages whose names contain our name.
+    return /^prism[_-]organizer\s/im.test(out);
   } catch {
     return false;
   }
@@ -85,14 +87,46 @@ function installPipPackage() {
 }
 
 /**
+ * Download a URL, following HTTP 301/302 redirects up to `maxRedirects`.
+ */
+function followRedirects(url, maxRedirects, callback) {
+  const proto = url.startsWith("https") ? require("https") : require("http");
+  proto.get(url, (res) => {
+    if (
+      (res.statusCode === 301 || res.statusCode === 302) &&
+      res.headers.location
+    ) {
+      if (maxRedirects <= 0) {
+        callback(new Error("Too many redirects"), null);
+        return;
+      }
+      // Consume the response body before following redirect
+      res.resume();
+      followRedirects(res.headers.location, maxRedirects - 1, callback);
+    } else if (res.statusCode === 200) {
+      callback(null, res);
+    } else {
+      res.resume();
+      callback(
+        new Error(`Download failed with HTTP ${res.statusCode}`),
+        null
+      );
+    }
+  }).on("error", (e) => callback(e, null));
+}
+
+/**
  * Download the standalone binary from GitHub Releases.
  */
 async function downloadBinary() {
-  const https = require("https");
-  const dest = path.join(os.homedir(), ".prism-organizer", "prism-organizer.exe");
+  const dest = path.join(
+    os.homedir(),
+    ".prism-organizer",
+    "prism-organizer.exe"
+  );
   const destDir = path.dirname(dest);
 
-  const { mkdirSync, createWriteStream } = require("fs");
+  const { mkdirSync, createWriteStream, unlinkSync } = require("fs");
   mkdirSync(destDir, { recursive: true });
 
   if (existsSync(dest)) {
@@ -103,35 +137,41 @@ async function downloadBinary() {
   log("Downloading standalone binary...");
   const file = createWriteStream(dest);
 
-  return new Promise((resolve, reject) => {
-    https
-      .get(GITHUB_RELEASES, { followAllRedirects: true }, (res) => {
-        const total = parseInt(res.headers["content-length"], 10);
-        let downloaded = 0;
+  return new Promise((resolve) => {
+    followRedirects(GITHUB_RELEASES, 5, (err, res) => {
+      if (err) {
+        warn(`Binary download failed: ${err.message}. Falling back to Python.`);
+        try { file.close(); unlinkSync(dest); } catch (_) {}
+        resolve(null);
+        return;
+      }
 
-        res.on("data", (chunk) => {
-          downloaded += chunk.length;
-          if (total) {
-            const pct = ((downloaded / total) * 100).toFixed(1);
-            process.stderr.write(`\r  Downloading... ${pct}%`);
-          }
-        });
+      const total = parseInt(res.headers["content-length"], 10);
+      let downloaded = 0;
 
-        res.pipe(file);
+      res.on("data", (chunk) => {
+        downloaded += chunk.length;
+        if (total) {
+          const pct = ((downloaded / total) * 100).toFixed(1);
+          process.stderr.write(`\r  Downloading... ${pct}%`);
+        }
+      });
 
-        file.on("finish", () => {
-          file.close();
-          process.stderr.write("\r\x1b[K");
-          success("Binary downloaded.");
-          resolve(dest);
-        });
+      res.pipe(file);
 
-        file.on("error", reject);
-      })
-      .on("error", (e) => {
-        warn("Binary download failed. Falling back to Python.");
+      file.on("finish", () => {
+        file.close();
+        process.stderr.write("\r\x1b[K");
+        success("Binary downloaded.");
+        resolve(dest);
+      });
+
+      file.on("error", (e) => {
+        warn(`Binary download failed: ${e.message}. Falling back to Python.`);
+        try { unlinkSync(dest); } catch (_) {}
         resolve(null);
       });
+    });
   });
 }
 
@@ -141,22 +181,36 @@ async function main() {
   const args = process.argv.slice(2);
 
   // Handle --install (postinstall hook)
+  // IMPORTANT: This must NEVER exit with a non-zero code, otherwise
+  // `npm install -g prism-organizer` will fail and roll back.
   if (args.includes("--install")) {
     console.log("\n🔮 Prism Organizer — First-time Setup\n");
 
     if (!hasPython()) {
       warn("Python 3.8+ is not found on your PATH.");
-      warn("Install Python from https://python.org and re-run.");
-      process.exit(1);
+      log("");
+      log("  To use prism-organizer, install Python from:");
+      log("  https://python.org/downloads/");
+      log("");
+      log("  After installing Python, run:");
+      log("    pip install git+https://github.com/J-Akiru5/prism-organizer.git");
+      log("");
+      // Exit 0 so npm install succeeds even without Python
+      process.exit(0);
     }
 
     if (!hasPipPackage()) {
-      installPipPackage();
+      if (!installPipPackage()) {
+        warn("Automatic pip installation failed.");
+        log("You can install manually with:");
+        log("  pip install git+https://github.com/J-Akiru5/prism-organizer.git");
+      }
     } else {
       success("prism-organizer is already installed.");
     }
 
     console.log("\n  Run: prism-organizer --help\n");
+    // Always exit 0 — postinstall is best-effort
     process.exit(0);
   }
 

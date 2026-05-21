@@ -9,14 +9,14 @@ Detects and plans removal of:
 - Large installers likely already installed
 """
 
-import fnmatch
+
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
 from prism_organizer.config import Config
 from prism_organizer.scanner import FileInfo, ScanResult
-from prism_organizer.utils import format_size, parse_size, expand_path
+from prism_organizer.utils import format_size, parse_size
 
 
 @dataclass

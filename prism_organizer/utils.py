@@ -1,10 +1,7 @@
-"""Shared utility functions for Prism Organizer."""
-
 import os
 import re
 import math
 from pathlib import Path
-from datetime import datetime
 from typing import Optional, Union
 
 from colorama import Fore, Style, init as colorama_init
@@ -55,7 +52,7 @@ def format_size(size_bytes: int) -> str:
         format_size(1048576) -> '1.00 MB'
         format_size(0) -> '0 B'
     """
-    if size_bytes == 0:
+    if size_bytes <= 0:
         return "0 B"
     units = ["B", "KB", "MB", "GB", "TB"]
     i = int(math.floor(math.log(size_bytes, 1024)))

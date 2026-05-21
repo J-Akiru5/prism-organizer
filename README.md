@@ -5,7 +5,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078d7.svg)]()
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)]()
-[![npm](https://img.shields.io/npm/v/prism-organizer?color=red)](https://www.npmjs.com/package/prism-organizer)
+[![npm v1.2.0](https://img.shields.io/npm/v/prism-organizer?color=red)](https://www.npmjs.com/package/prism-organizer)
 
 ## Features
 
@@ -17,7 +17,7 @@
 - **🧹 Cleanup** — Remove temp files, lock files, incomplete downloads, large installers
 - **☁️ Cloud Drive Detection** — Auto-detects OneDrive, Google Drive, Dropbox, etc. and skips them
 - **📝 Custom Rules** — Define your own rules in YAML to organize files your way
-- **🤖 AI Classification** — AI-powered category suggestions (BYOK or local LLM)
+- **🤖 AI Classification** — AI-powered category suggestions with interactive setup wizard
 - **🔄 Undo** — Every operation is logged and fully reversible
 - **👁️ Dry-Run Preview** — Always previews before making changes
 - **⚡ Parallel Processing** — Multi-threaded scanning and hashing
@@ -29,8 +29,8 @@
 ## Quick Start
 
 ### Prerequisites
-- **Python 3.8+** ([download](https://python.org))
-- **Node.js 16+** (for npm install only)
+- **Python 3.8+** ([download](https://python.org)) — required for core functionality
+- **Node.js 16+** (optional, for npm install method)
 
 ### Installation
 
@@ -45,6 +45,10 @@ pip install git+https://github.com/J-Akiru5/prism-organizer.git
 git clone https://github.com/J-Akiru5/prism-organizer.git
 cd prism-organizer && pip install -e .
 ```
+
+> **Note:** The npm package installs a Node.js wrapper that manages Python automatically.
+> If Python is not installed at npm install time, the package will install successfully
+> and show instructions for installing Python separately.
 
 ### Verify Installation
 ```bash
@@ -94,6 +98,7 @@ prism-organizer undo --list     # List recent operations
 
 ### AI Classification
 ```bash
+prism-organizer ai-setup                            # 🆕 Interactive AI setup wizard
 prism-organizer ai-classify ~/Downloads             # Suggest categories
 prism-organizer ai-classify ~/Downloads --rename     # Also suggest filenames
 ```
@@ -123,12 +128,12 @@ prism-organizer tui
 The TUI provides:
 - **Arrow-key navigation** — select directories, commands, and options with arrow keys
 - **Live panels** — activity log, quick stats, and menu side-by-side
-- **Keyboard shortcuts** — every function is a single keystroke away (`1`=scan, `2`=sort, `3`=dupes, etc.)
+- **Keyboard shortcuts** — every function is a single keystroke away
 - **Zero subcommand memorization** — discover all features from the menu
 
 ```
 ╔══════════════════════════════════════════════════════╗
-║  🔮  Prism Organizer v1.1.0                         ║
+║  🔮  Prism Organizer v1.2.0                         ║
 ║  scan  |  sort  |  dupes  |  clean  |  rules  |  ai ║
 ╠══════════════════════════╦═══════════════════════════╣
 ║  📋  Main Menu           ║  📊  Quick Stats         ║
@@ -140,6 +145,7 @@ The TUI provides:
 ║  🤖 [6]  AI classify     ║  12:30 Cleaned 3 items   ║
 ║  👀 [7]  Watch mode      ║  12:25 Dupe check: 2 grp ║
 ║  ↩️ [8]  Undo last       ║                          ║
+║  ⚙️ [9]  Setup AI        ║                          ║
 ║  [S] Schedule  [H] Help  [Q] Quit                   ║
 ╚══════════════════════════╩═══════════════════════════╝
 ```
@@ -149,24 +155,23 @@ The TUI provides:
 > prism-organizer sort ~/Downloads --no-interactive
 > ```
 
-## AI Integration — BYOK / Local LLM
+## 🤖 AI Integration
 
-Prism Organizer supports **any OpenAI-compatible API**. Use your own API key (BYOK) or a local LLM (Ollama, LM Studio, vLLM).
+Prism Organizer supports **three AI providers**. Set up in seconds with the interactive wizard:
 
-### Configuration
-```yaml
-ai:
-  enabled: true
-  provider: "openai"            # openai, ollama, or lmstudio
-  model: "gpt-4o-mini"
-  api_key: ""                   # or set OPENAI_API_KEY env var
-  features:
-    classify_unknown: true
-    smart_rename: false
-  min_confidence: 0.7
+```bash
+prism-organizer ai-setup
 ```
 
-### Local LLM Example (Ollama)
+| Provider | Cost | Privacy | Setup |
+|----------|------|---------|-------|
+| **OpenAI** | Pay-per-use | Cloud | API key required |
+| **Ollama** | Free | 100% Local | `ollama pull llama3.2` |
+| **LM Studio** | Free | 100% Local | Download + GUI |
+
+📖 **Full guide:** [docs/AI_SETUP.md](docs/AI_SETUP.md)
+
+### Quick Config Example (Ollama)
 ```yaml
 ai:
   enabled: true
@@ -202,6 +207,33 @@ Config stored at `~/.prism-organizer/config.yaml`. Auto-created on first run.
 - **☁️ Cloud drive protection** — Auto-skips synced folders
 - **🤖 AI always suggests, never acts** — Classifications go through preview/confirm
 
+## Troubleshooting
+
+### npm install fails / Python not found
+
+The npm package will install successfully even without Python. You'll see a warning:
+
+```
+⚠ Python 3.8+ is not found on your PATH.
+ℹ   Install Python from: https://python.org/downloads/
+```
+
+Install Python, then run the tool normally. The pip package will be installed automatically on first use.
+
+### Command not found after install
+
+```bash
+# Try running directly with Python:
+python -m prism_organizer --help
+
+# Or reinstall globally:
+pip install git+https://github.com/J-Akiru5/prism-organizer.git
+```
+
+### Permission errors on scanned directories
+
+Run as administrator, or target directories you own (Downloads, Desktop, Documents).
+
 ## Project Structure
 
 ```
@@ -221,9 +253,31 @@ prism_organizer/
 ├── interactive.py   # Arrow-key menus, checkboxes, wizards
 ├── tui.py           # Interactive TUI dashboard
 ├── ai.py            # AI-powered classification & renaming
+├── ai_setup.py      # Interactive AI setup wizard
 ├── watcher.py       # Real-time watcher + scheduler
 └── utils.py         # Shared utilities
+docs/
+└── AI_SETUP.md      # Complete AI setup guide
 ```
+
+## Changelog
+
+### v1.2.0 (Stable)
+- **Fixed:** npm install no longer fails when Python is missing (exits cleanly with instructions)
+- **Fixed:** Binary download from GitHub Releases now handles HTTP redirects
+- **Fixed:** Version mismatch between setup.py, package.json, and __init__.py
+- **Fixed:** `{counter}` placeholder in rename rules no longer causes KeyError
+- **Fixed:** Rich markup tags no longer render as literal text in TUI input prompts
+- **Fixed:** Archive operations no longer silently overwrite existing zip files
+- **Fixed:** Perceptual duplicate sorting no longer crashes if files are deleted mid-scan
+- **Added:** Interactive AI setup wizard (`prism-organizer ai-setup` / TUI key `[9]`)
+- **Added:** AI setup documentation (`docs/AI_SETUP.md`)
+- **Added:** Test step in CI/CD pipeline (runs before build/publish)
+- **Improved:** Removed unused imports across multiple modules
+- **Improved:** Added watcher defaults to config
+
+### v1.1.0
+- Initial public release with full feature set
 
 ## License
 

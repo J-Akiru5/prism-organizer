@@ -189,7 +189,8 @@ class RuleEngine:
         return True
 
     @staticmethod
-    def _apply_rename_pattern(pattern: str, file_info: FileInfo) -> str:
+    def _apply_rename_pattern(pattern: str, file_info: FileInfo,
+                              counter: int = 0) -> str:
         """Apply a rename pattern to generate a new filename.
         
         Supported placeholders:
@@ -197,12 +198,13 @@ class RuleEngine:
             {ext} - file extension (with dot)
             {date} - modification date as YYYY-MM-DD
             {datetime} - modification datetime as YYYY-MM-DD_HHMMSS
-            {counter} - will be replaced during execution
+            {counter} - sequential counter (passed by executor)
             {category} - file category
         
         Args:
             pattern: Format string with placeholders.
             file_info: Metadata for the file being renamed.
+            counter: Sequential counter value for {counter} placeholder.
         
         Returns:
             The new filename with placeholders resolved.
@@ -213,5 +215,6 @@ class RuleEngine:
             ext=file_info.extension,
             date=file_info.modified.strftime("%Y-%m-%d"),
             datetime=file_info.modified.strftime("%Y-%m-%d_%H%M%S"),
+            counter=counter,
             category=file_info.category,
         )

@@ -485,7 +485,16 @@ class DuplicateDetector:
         similar_groups: List[PerceptualGroup] = []
         assigned: Set[Path] = set()
 
-        hash_items = sorted(hashes.items(), key=lambda x: -x[0].stat().st_size)
+        # Cache file sizes to avoid stat() calls inside the sort comparator
+        # (files could be deleted between hashing and sorting)
+        size_cache = {}
+        for fp in hashes:
+            try:
+                size_cache[fp] = fp.stat().st_size
+            except OSError:
+                size_cache[fp] = 0
+
+        hash_items = sorted(hashes.items(), key=lambda x: -size_cache.get(x[0], 0))
 
         for filepath, phash in hash_items:
             if filepath in assigned:

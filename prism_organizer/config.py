@@ -90,6 +90,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         },
         "min_confidence": 0.7,
     },
+    "watcher": {
+        "cooldown_seconds": 10,
+        "min_file_age_seconds": 5,
+    },
 }
 
 

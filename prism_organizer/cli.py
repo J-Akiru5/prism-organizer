@@ -141,6 +141,9 @@ def create_parser() -> argparse.ArgumentParser:
     ai_parser.add_argument("--recursive", action=argparse.BooleanOptionalAction, default=True)
     ai_parser.add_argument("--rename", action="store_true", help="Also suggest smart renames")
 
+    # ai-setup
+    subparsers.add_parser("ai-setup", help="Interactive wizard to configure AI features")
+
     # watch
     watch_parser = subparsers.add_parser("watch", help="Watch directories for changes and auto-organize")
     watch_parser.add_argument("path", help="Directory to watch")
@@ -694,6 +697,7 @@ def main() -> None:
         "rules": cmd_rules,
         "undo": cmd_undo,
         "ai-classify": cmd_ai_classify,
+        "ai-setup": lambda a, c: _cmd_ai_setup(c),
         "watch": cmd_watch,
         "schedule": cmd_schedule,
         "tui": lambda a, c: run_tui(c),
@@ -718,6 +722,12 @@ def main() -> None:
             sys.exit(1)
     else:
         parser.print_help()
+
+
+def _cmd_ai_setup(config: Config) -> None:
+    """Launch the interactive AI setup wizard."""
+    from prism_organizer.ai_setup import run_ai_setup
+    run_ai_setup(config)
 
 
 if __name__ == "__main__":

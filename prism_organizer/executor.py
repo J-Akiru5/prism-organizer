@@ -9,7 +9,7 @@ import shutil
 import zipfile
 from pathlib import Path
 from datetime import datetime
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from tqdm import tqdm
@@ -242,6 +242,12 @@ class Executor:
         try:
             archive_dir.mkdir(parents=True, exist_ok=True)
             zip_path = archive_dir / f"{filepath.stem}.zip"
+            
+            # Handle name conflicts — don't overwrite existing archives
+            counter = 1
+            while zip_path.exists():
+                zip_path = archive_dir / f"{filepath.stem}_{counter}.zip"
+                counter += 1
             
             with zipfile.ZipFile(str(zip_path), 'w', zipfile.ZIP_DEFLATED) as zf:
                 zf.write(str(filepath), filepath.name)

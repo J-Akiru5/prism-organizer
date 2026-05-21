@@ -5,7 +5,6 @@ Always generates a plan of operations first (for preview), then
 executes only after confirmation.
 """
 
-import os
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, field

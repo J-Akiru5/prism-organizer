@@ -59,6 +59,7 @@ MENU_ITEMS = [
     ("6", "ai",      "AI classify",          "\U0001f916"),
     ("7", "watch",   "Watch mode",           "\U0001f440"),
     ("8", "undo",    "Undo last operation",  "\u21a9\ufe0f"),
+    ("9", "ai-setup", "Setup AI features",    "\u2699\ufe0f"),
 ]
 SECONDARY_ITEMS = [
     ("S", "schedule", "Schedule tasks", "\U0001f4c5"),
@@ -496,9 +497,24 @@ def _action_ai(config: Config) -> bool:
             rows=rows,
         )
         if interactive_confirm("Apply these reclassifications?"):
-            from prism_organizer.cli import _build_classification_plan
+            from prism_organizer.rules import RulePlan, RuleMatch
+            from prism_organizer.utils import safe_filename
+
+            def _build_ai_plan(classifications, target_dir):
+                plan = RulePlan()
+                for c in classifications:
+                    dest_dir = target_dir / c.suggested_category
+                    dest = safe_filename(dest_dir, c.file_info.name)
+                    plan.matches.append(RuleMatch(
+                        file_info=c.file_info,
+                        rule_name="AI Classification",
+                        action="move",
+                        destination=dest,
+                    ))
+                return plan
+
             executor = Executor(config)
-            plan = _build_classification_plan(
+            plan = _build_ai_plan(
                 high_confidence, scan_result.target_dir,
             )
             executor.execute_rules(plan, target)
@@ -647,6 +663,17 @@ def _action_schedule(config: Config) -> bool:
     return False
 
 
+def _action_ai_setup(config: Config) -> bool:
+    """Run the AI setup wizard."""
+    from prism_organizer.ai_setup import run_ai_setup
+    result = run_ai_setup(config)
+    if result:
+        add_log("AI features configured successfully", "success")
+    else:
+        add_log("AI setup cancelled or failed", "info")
+    return result
+
+
 # ── Main TUI loop ─────────────────────────────────────────────────────
 
 
@@ -659,6 +686,7 @@ ACTION_MAP = {
     "6": ("ai", _action_ai),
     "7": ("watch", _action_watch),
     "8": ("undo", _action_undo),
+    "9": ("ai-setup", _action_ai_setup),
     "s": ("schedule", _action_schedule),
 }
 
@@ -692,10 +720,8 @@ def run_tui(config: Optional[Config] = None) -> None:
             layout = _build_layout(config)
             try:
                 key = input(
-                    f"\n  [{THEME['primary']}]{'─' * 25}[/{THEME['primary']}] "
-                    f"[{THEME['accent']}]Enter choice[/{THEME['accent']}] "
-                    f"[{THEME['primary']}]{'─' * 25}[/{THEME['primary']}]\n"
-                    f"  > "
+                    "\n  " + "─" * 25 + " Enter choice " + "─" * 25 + "\n"
+                    "  > "
                 ).strip().lower()
             except (KeyboardInterrupt, EOFError):
                 print()
@@ -722,7 +748,7 @@ def run_tui(config: Optional[Config] = None) -> None:
                     display_error(f"Error: {e}")
                     add_log(f"Error in {action_name}: {e}", "error")
                 input(
-                    f"\n  [{THEME['muted']}]Press Enter to return to menu..."
+                    "\n  Press Enter to return to menu..."
                 )
                 console.clear()
             else:
