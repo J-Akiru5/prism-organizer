@@ -102,6 +102,7 @@ function httpGet(url, maxRedirects, callback) {
  */
 function downloadBinary() {
   const { readFileSync, writeFileSync } = require("fs");
+  const tmpPath = BINARY_PATH + ".tmp";
   return new Promise((resolve) => {
     // Cache hit — check if version matches
     if (existsSync(BINARY_PATH)) {
@@ -116,13 +117,27 @@ function downloadBinary() {
         try { unlinkSync(VERSION_PATH); } catch (_) {}
       } catch {
         // No version file — might be from before version tracking
-        // Keep old binary but still re-download to be safe on first tracked install
+      }
+    }
+
+    // Recover from interrupted download (leftover .tmp file)
+    const tmpPath = BINARY_PATH + ".tmp";
+    if (!existsSync(BINARY_PATH) && existsSync(tmpPath)) {
+      try {
+        require("fs").renameSync(tmpPath, BINARY_PATH);
+        try { writeFileSync(VERSION_PATH, WRAPPER_VERSION, "utf-8"); } catch (_) {}
+        cyan("Recovered partially downloaded binary.");
+        return resolve(BINARY_PATH);
+      } catch (_) {
+        try { unlinkSync(tmpPath); } catch (_) {}
       }
     }
 
     mkdirSync(CACHE_DIR, { recursive: true });
     cyan("Downloading Prism Organizer (one-time, ~30MB)...");
     cyan("This removes the Python requirement entirely.");
+
+    // Download to temp file first to avoid EBUSY on locked binary
 
     httpGet(DOWNLOAD_URL, 5, (err, res) => {
       if (err) {
@@ -131,9 +146,12 @@ function downloadBinary() {
         return;
       }
 
+      // Clean up any existing tmp file
+      try { unlinkSync(tmpPath); } catch (_) {}
+
       const total = parseInt(res.headers["content-length"], 10) || 0;
       let downloaded = 0;
-      const file = createWriteStream(BINARY_PATH);
+      const file = createWriteStream(tmpPath);
 
       res.on("data", (chunk) => {
         downloaded += chunk.length;
@@ -144,7 +162,15 @@ function downloadBinary() {
 
       file.on("finish", () => {
         file.close();
-        // Write version marker so we can detect stale caches on update
+        // Atomically replace old binary with new one
+        try { unlinkSync(BINARY_PATH); } catch (_) {}
+        try {
+          require("fs").renameSync(tmpPath, BINARY_PATH);
+        } catch (_) {
+          // If rename fails (e.g. locked), leave as tmp for next run
+          yellow("Binary will update on next restart.");
+        }
+        // Write version marker
         try {
           writeFileSync(VERSION_PATH, WRAPPER_VERSION, "utf-8");
         } catch (_) {}
@@ -172,7 +198,7 @@ function showNoRuntimeError() {
   cyan("Quick fix — install Python 3.8+ (3 minutes):");
   cyan("  1. Download: https://python.org/downloads/");
   cyan("  2. During install: CHECK 'Add Python to PATH'");
-  cyan("  3. Then run: pip install git+" + PIP_URL);
+  cyan("  3. Then run: pip install " + PIP_URL);
   process.stderr.write("\n");
   cyan("Alternative — download the standalone .exe:");
   cyan("  " + DOWNLOAD_URL);
