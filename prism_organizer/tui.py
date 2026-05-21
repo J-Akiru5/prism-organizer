@@ -628,11 +628,15 @@ def _action_schedule(config: Config) -> bool:
             choices=["scan", "sort", "clean", "rules"],
             default="sort",
         )
+        if not cmd:
+            return False
         interval = interactive_select(
             "Interval:",
             choices=["daily", "weekly", "hourly"],
             default="daily",
         )
+        if not interval:
+            return False
         time_str = interactive_text(
             "Start time (HH:MM, 24h):",
             default="09:00",

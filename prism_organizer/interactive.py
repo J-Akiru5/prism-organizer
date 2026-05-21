@@ -158,7 +158,7 @@ def interactive_checkbox(
     """
     if not _check_questionary():
         print(f"\n  {message}")
-        prechecked = set(checked or [])
+        prechecked = list(checked or [])
         for i, c in enumerate(choices, 1):
             label = format_fn(c) if format_fn else str(c)
             status = "[x]" if c in prechecked else "[ ]"
@@ -181,13 +181,13 @@ def interactive_checkbox(
 
     import questionary
     styled = []
-    checked_set = set(checked or [])
+    checked_list = list(checked or [])
     for c in choices:
         label = format_fn(c) if format_fn else str(c)
         styled.append(questionary.Choice(
             title=label,
             value=c,
-            checked=c in checked_set,
+            checked=c in checked_list,
         ))
 
     return questionary.checkbox(
@@ -328,9 +328,9 @@ def interactive_cloud_drive_selection(
             d.skip = True
         return list(drives), []
 
-    selected_set = set(selected or [])
+    selected_paths = {d.path for d in (selected or [])}
     for d in drives:
-        d.skip = d in selected_set
+        d.skip = d.path in selected_paths
 
     skip = [d for d in drives if d.skip]
     include = [d for d in drives if not d.skip]

@@ -672,15 +672,27 @@ def main() -> None:
     parser = create_parser()
     args = parser.parse_args()
 
-    if not args.command:
-        # Default: launch the interactive TUI dashboard
+    # Boot: load config (protected — friendly error on failure)
+    try:
         config = Config(config_path=args.config)
-        display_splash()
-        run_tui(config)
-        sys.exit(0)
+    except Exception as e:
+        print_error(f"Startup error: {e}")
+        sys.exit(1)
 
-    # Load config
-    config = Config(config_path=args.config)
+    # No subcommand → launch TUI dashboard
+    if not args.command:
+        try:
+            display_splash()
+            run_tui(config)
+        except KeyboardInterrupt:
+            print("\n")
+            print_info("Goodbye!")
+        except Exception as e:
+            print_error(f"Startup error: {e}")
+            if args.verbose:
+                import traceback
+                traceback.print_exc()
+        sys.exit(0)
 
     # Show splash for TUI mode
     if args.command == "tui":
