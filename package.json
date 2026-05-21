@@ -1,6 +1,6 @@
 {
   "name": "prism-organizer",
-  "version": "1.2.10",
+  "version": "1.2.11",
   "description": "A beautiful CLI file organizer — no Python required. Scan, sort, clean, find duplicates.",
   "license": "MIT",
   "author": {
