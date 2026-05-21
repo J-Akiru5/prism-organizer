@@ -20,7 +20,7 @@ const BINARY_NAME = "prism-organizer.exe";
 const CACHE_DIR = path.join(os.homedir(), ".prism-organizer");
 const BINARY_PATH = path.join(CACHE_DIR, BINARY_NAME);
 const VERSION_PATH = path.join(CACHE_DIR, ".binary-version");
-const WRAPPER_VERSION = "1.2.12";
+const WRAPPER_VERSION = "1.2.13";
 const DOWNLOAD_URL =
   "https://github.com/J-Akiru5/prism-organizer/releases/latest/download/prism-organizer.exe";
 const PIP_URL =
@@ -171,10 +171,14 @@ function downloadBinary() {
         } catch (_) {
           yellow("Binary will update on next restart. Using downloaded copy.");
         }
-        // Write version marker
-        try {
-          writeFileSync(VERSION_PATH, WRAPPER_VERSION, "utf-8");
-        } catch (_) {}
+        // Write version marker — only if binary was placed successfully
+        // (if rename failed and we're using .tmp, the recovery code
+        // on next run will handle the rename and write the marker then)
+        if (finalPath === BINARY_PATH) {
+          try {
+            writeFileSync(VERSION_PATH, WRAPPER_VERSION, "utf-8");
+          } catch (_) {}
+        }
         process.stderr.write("\r\x1b[K");
         green("Download complete. Prism Organizer is ready!");
         resolve(finalPath);
