@@ -98,10 +98,10 @@ class Executor:
         self._log.target_dir = str(target_dir)
         backup_dir = get_backup_dir(target_dir)
         
-        installer_config = self.config.installer_detection if self.config else {}
+        installer_config = self.config.installer_detection if self.config else None
         archive_dir_parent = (
             expand_path(installer_config.get("archive_path", "~/Archive/Installers/"))
-            if installer_config
+            if installer_config is not None
             else backup_dir
         )
         

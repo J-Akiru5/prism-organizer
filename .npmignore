@@ -1,0 +1,32 @@
+# Byte-compiled Python
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Build artifacts
+build/
+dist/
+*.spec
+build_log.txt
+version_test.txt
+run_tests.ps1
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Tests
+tests/
+.pytest_cache/
+
+# Local data
+.prism-organizer/
+.prism-organizer_backup/
+logs/
+
+# Node
+node_modules/

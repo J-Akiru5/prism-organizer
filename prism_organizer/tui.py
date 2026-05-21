@@ -719,9 +719,9 @@ def run_tui(config: Optional[Config] = None) -> None:
     layout = _build_layout(config)
     add_log("Prism Organizer ready.  Select an action.", "info")
 
-    with Live(layout, console=console, refresh_per_second=4, screen=False):
+    with Live(layout, console=console, refresh_per_second=4, screen=False) as live:
         while True:
-            layout = _build_layout(config)
+            live.update(_build_layout(config))
             try:
                 key = input(
                     "\n  " + "─" * 25 + " Enter choice " + "─" * 25 + "\n"

@@ -141,7 +141,12 @@ class Config:
     def _ensure_config_dir(self) -> None:
         """Ensure the config directory exists, creating it if necessary."""
         config_dir = self._config_path.parent
-        config_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            config_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            raise RuntimeError(
+                f"Cannot create config directory '{config_dir}': {e}"
+            ) from e
 
     def _load(self) -> None:
         """Load configuration from YAML file, merging with defaults.
@@ -168,11 +173,12 @@ class Config:
         the merge recurses.  In all other cases the *override* value
         wins outright (including list replacement).
 
-        Args:
-            base: The dictionary to merge *into* (modified in-place).
-            override: The dictionary whose values take precedence.
+        ``None`` values in *override* are silently skipped — they
+        cannot overwrite existing dict-type defaults.
         """
         for key, value in override.items():
+            if value is None:
+                continue
             if key in base and isinstance(base[key], dict) and isinstance(value, dict):
                 self._deep_merge(base[key], value)
             else:
