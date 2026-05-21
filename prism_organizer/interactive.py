@@ -31,19 +31,24 @@ def _check_questionary() -> bool:
 
 
 def _questionary_style():
-    """Return a custom questionary style matching the app theme."""
+    """Return a custom questionary style matching the app theme.
+
+    Uses prompt_toolkit-compatible colors (no Rich modifiers like
+    ``dim``, ``bold`` in color names — those go in the style string
+    as separate tokens).
+    """
     from questionary import Style
     return Style([
-        ("qmark", f"fg:{THEME['primary']} bold"),
-        ("question", f"fg:{THEME['info']} bold"),
-        ("answer", f"fg:{THEME['accent']} bold"),
-        ("pointer", f"fg:{THEME['primary']} bold"),
-        ("highlighted", f"fg:{THEME['primary']} bold"),
-        ("selected", f"fg:{THEME['success']}"),
-        ("separator", f"fg:{THEME['muted']}"),
-        ("instruction", f"fg:{THEME['muted']}"),
-        ("text", f"fg:{THEME['info']}"),
-        ("disabled", f"fg:{THEME['muted']} italic"),
+        ("qmark", f"fg:ansicyan bold"),
+        ("question", f"fg:ansiwhite bold"),
+        ("answer", f"fg:ansimagenta bold"),
+        ("pointer", f"fg:ansicyan bold"),
+        ("highlighted", f"fg:ansicyan bold"),
+        ("selected", f"fg:ansigreen"),
+        ("separator", "fg:ansigray"),
+        ("instruction", "fg:ansigray"),
+        ("text", "fg:ansiwhite"),
+        ("disabled", "fg:ansigray italic"),
     ])
 
 
