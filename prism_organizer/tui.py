@@ -18,7 +18,6 @@ from rich.panel import Panel
 from rich.layout import Layout
 from rich.align import Align
 from rich.text import Text
-from rich.live import Live
 from rich import box
 
 from prism_organizer import __version__
@@ -716,44 +715,45 @@ def run_tui(config: Optional[Config] = None) -> None:
         interactive_cloud_drive_selection(detected)
 
     console = get_console()
-    layout = _build_layout(config)
     add_log("Prism Organizer ready.  Select an action.", "info")
 
-    with Live(layout, console=console, refresh_per_second=4, screen=False) as live:
-        while True:
-            live.update(_build_layout(config))
+    while True:
+        console.print(_build_layout(config))
+        try:
+            key = console.input(
+                "\n  [dim cyan]" + "─" * 25 + "[/dim cyan] "
+                "[bold magenta]Enter choice[/bold magenta] "
+                "[dim cyan]" + "─" * 25 + "[/dim cyan]\n"
+                "  [bold cyan]>[/bold cyan] "
+            ).strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            console.print()
+            add_log("Goodbye!", "info")
+            break
+
+        if key == "q":
+            add_log("Goodbye!", "info")
+            break
+
+        if key == "h":
+            console.clear()
+            console.print(_make_help_panel())
+            console.input("\n  [dim]Press Enter to return to menu...[/dim]")
+            console.clear()
+            continue
+
+        if key in ACTION_MAP:
+            action_name, action_fn = ACTION_MAP[key]
+            console.clear()
             try:
-                key = input(
-                    "\n  " + "─" * 25 + " Enter choice " + "─" * 25 + "\n"
-                    "  > "
-                ).strip().lower()
-            except (KeyboardInterrupt, EOFError):
-                print()
-                add_log("Goodbye!", "info")
-                break
-
-            if key == "q":
-                add_log("Goodbye!", "info")
-                break
-
-            if key == "h":
-                console.clear()
-                console.print(_make_help_panel())
-                input("\n  Press Enter to return to menu...")
-                console.clear()
-                continue
-
-            if key in ACTION_MAP:
-                action_name, action_fn = ACTION_MAP[key]
-                console.clear()
-                try:
-                    action_fn(config)
-                except Exception as e:
-                    display_error(f"Error: {e}")
-                    add_log(f"Error in {action_name}: {e}", "error")
-                input(
-                    "\n  Press Enter to return to menu..."
-                )
-                console.clear()
-            else:
-                add_log(f"Unknown key: {key}", "warning")
+                action_fn(config)
+            except Exception as e:
+                display_error(f"Error: {e}")
+                add_log(f"Error in {action_name}: {e}", "error")
+            console.input(
+                "\n  [dim]Press Enter to return to menu...[/dim]"
+            )
+            console.clear()
+        else:
+            add_log(f"Unknown key: {key}", "warning")
+            console.clear()
