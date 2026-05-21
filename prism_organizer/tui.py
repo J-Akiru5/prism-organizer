@@ -385,7 +385,7 @@ def _action_clean(config: Config) -> bool:
     preview = Preview()
     if preview.show_cleanup_preview(plan):
         executor = Executor(config)
-        executor.execute_cleanup(plan, target)
+        executor.execute_cleanup(plan, target, review_folder=None)
         add_log(
             f"Cleaned {plan.total_items} items from {target.name}",
             "success",

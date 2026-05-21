@@ -123,6 +123,8 @@ def create_parser() -> argparse.ArgumentParser:
     clean_parser.add_argument("--recursive", action=argparse.BooleanOptionalAction, default=True)
     clean_parser.add_argument("--dry-run", action="store_true", default=True, help="Preview only (default)")
     clean_parser.add_argument("--confirm", action="store_true", help="Skip preview, execute directly")
+    clean_parser.add_argument("--review-folder", type=str, default=None,
+                              help="Move items to this folder instead of backup (for manual review)")
 
     # rules
     rules_parser = subparsers.add_parser("rules", help="Apply custom rules from config")
@@ -326,8 +328,9 @@ def cmd_clean(args: argparse.Namespace, config: Config) -> None:
 
     preview = Preview()
     if args.confirm or preview.show_cleanup_preview(plan):
+        review = expand_path(args.review_folder) if args.review_folder else None
         executor = Executor(config)
-        executor.execute_cleanup(plan, expand_path(args.path))
+        executor.execute_cleanup(plan, expand_path(args.path), review_folder=review)
     else:
         print_info("Operation cancelled.")
 
@@ -600,7 +603,7 @@ def cmd_watch(args: argparse.Namespace, config: Config) -> None:
                 preview = Preview()
                 if preview.show_cleanup_preview(plan):
                     executor = Executor(config)
-                    executor.execute_cleanup(plan, watch_path)
+                    executor.execute_cleanup(plan, watch_path, review_folder=None)
 
     watcher = DirectoryWatcher(config)
     watcher.add_directory(args.path, actions=actions)

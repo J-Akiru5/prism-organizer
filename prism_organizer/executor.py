@@ -90,36 +90,51 @@ class Executor:
         
         return self._log
 
-    def execute_cleanup(self, plan: CleanupPlan, target_dir: Path) -> ExecutionLog:
-        """Execute a cleanup plan."""
+    def execute_cleanup(self, plan: CleanupPlan, target_dir: Path,
+                         review_folder: Optional[Path] = None) -> ExecutionLog:
+        """Execute a cleanup plan.
+
+        By default, deleted items are moved to a ``.prism-organizer_backup/``
+        directory inside *target_dir*.  Pass *review_folder* to override
+        this with a custom location (e.g. for manual review).
+        """
         self._log.command = "clean"
         self._log.target_dir = str(target_dir)
-        backup_dir = get_backup_dir(target_dir)
-        
+        backup_dir = review_folder or get_backup_dir(target_dir)
+        skipped = 0
+
         installer_config = self.config.installer_detection if self.config else None
         archive_dir_parent = (
             expand_path(installer_config.get("archive_path", "~/Archive/Installers/"))
             if installer_config is not None
             else backup_dir
         )
-        
+
         print_info(f"Executing cleanup ({plan.total_items} items)...")
-        
+
         for item in display_progress(plan.items, desc="Cleaning"):
             if item.action == "suggest":
-                # Suggestions are just informational, skip
+                skipped += 1
                 continue
-            
+
             if item.action == "delete":
                 self._delete_file(item.path, backup_dir)
             elif item.action == "archive":
                 self._move_file(item.path, archive_dir_parent / item.path.name)
-        
+
         self._save_log()
-        
+
         succeeded = len(self._log.operations)
         print_success(f"Cleaned {succeeded} items.")
-        
+        if skipped:
+            print_info(f"{skipped} items flagged for review (no action taken).")
+        if succeeded > 0 and not review_folder:
+            print_info(f"Backup location: {backup_dir}")
+            print_info("  Use 'prism-organizer undo' to reverse this operation.")
+            print_info("  Or delete the backup folder to permanently remove files.")
+        elif succeeded > 0 and review_folder:
+            print_info(f"Items moved to: {review_folder}")
+
         return self._log
 
     def execute_duplicate_cleanup(self, result: DuplicateResult, target_dir: Path) -> ExecutionLog:
