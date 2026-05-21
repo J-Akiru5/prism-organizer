@@ -55,3 +55,6 @@ logs/
 # Node / NPM
 node_modules/
 package-lock.json
+build_log.txt
+prism-organizer.spec
+__pycache__/
