@@ -5,7 +5,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078d7.svg)]()
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)]()
-[![npm v1.2.1](https://img.shields.io/npm/v/prism-organizer?color=red)](https://www.npmjs.com/package/prism-organizer)
+[![npm v1.2.2](https://img.shields.io/npm/v/prism-organizer?color=red)](https://www.npmjs.com/package/prism-organizer)
 
 ## Features
 

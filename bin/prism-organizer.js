@@ -19,6 +19,8 @@ const os = require("os");
 const BINARY_NAME = "prism-organizer.exe";
 const CACHE_DIR = path.join(os.homedir(), ".prism-organizer");
 const BINARY_PATH = path.join(CACHE_DIR, BINARY_NAME);
+const VERSION_PATH = path.join(CACHE_DIR, ".binary-version");
+const WRAPPER_VERSION = "1.2.2";
 const DOWNLOAD_URL =
   "https://github.com/J-Akiru5/prism-organizer/releases/latest/download/prism-organizer.exe";
 const PIP_URL =
@@ -93,11 +95,30 @@ function httpGet(url, maxRedirects, callback) {
 /**
  * Download the standalone .exe from GitHub Releases (≈30 MB).
  * Returns the binary path on success, null on failure.
+ *
+ * On cache hit, the stored version is compared with WRAPPER_VERSION.
+ * If they differ (e.g. after an npm update), the old binary is
+ * deleted and a fresh one is downloaded.
  */
 function downloadBinary() {
+  const { readFileSync, writeFileSync } = require("fs");
   return new Promise((resolve) => {
-    // Already cached?
-    if (existsSync(BINARY_PATH)) return resolve(BINARY_PATH);
+    // Cache hit — check if version matches
+    if (existsSync(BINARY_PATH)) {
+      try {
+        const storedVersion = readFileSync(VERSION_PATH, "utf-8").trim();
+        if (storedVersion === WRAPPER_VERSION) {
+          return resolve(BINARY_PATH);
+        }
+        // Version mismatch — delete old binary and re-download
+        yellow(`Binary is for v${storedVersion}, updating to v${WRAPPER_VERSION}...`);
+        try { unlinkSync(BINARY_PATH); } catch (_) {}
+        try { unlinkSync(VERSION_PATH); } catch (_) {}
+      } catch {
+        // No version file — might be from before version tracking
+        // Keep old binary but still re-download to be safe on first tracked install
+      }
+    }
 
     mkdirSync(CACHE_DIR, { recursive: true });
     cyan("Downloading Prism Organizer (one-time, ~30MB)...");
@@ -123,6 +144,10 @@ function downloadBinary() {
 
       file.on("finish", () => {
         file.close();
+        // Write version marker so we can detect stale caches on update
+        try {
+          writeFileSync(VERSION_PATH, WRAPPER_VERSION, "utf-8");
+        } catch (_) {}
         process.stderr.write("\r\x1b[K");
         green("Download complete. Prism Organizer is ready!");
         resolve(BINARY_PATH);
