@@ -5,7 +5,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078d7.svg)]()
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)]()
-[![npm v1.2.0](https://img.shields.io/npm/v/prism-organizer?color=red)](https://www.npmjs.com/package/prism-organizer)
+[![npm v1.2.1](https://img.shields.io/npm/v/prism-organizer?color=red)](https://www.npmjs.com/package/prism-organizer)
 
 ## Features
 
@@ -28,22 +28,32 @@
 
 ## Quick Start
 
-### Prerequisites
-- **Python 3.8+** ([download](https://python.org)) — required for core functionality
-- **Node.js 16+** (optional, for npm install method)
+**No Python required.** The npm installer auto-downloads a standalone binary on first run.
 
 ### Installation
 
 ```bash
-# ── NPM (Recommended) ─────────────────────────────────
+# ── NPM (Recommended — zero setup) ───────────────────
 npm install -g prism-organizer
+# On first run, a ~30MB standalone binary is downloaded automatically.
+# After that: no Python, no pip, no dependencies needed.
 
-# ── Pip ───────────────────────────────────────────────
+# ── Pip (for Python users) ────────────────────────────
 pip install git+https://github.com/J-Akiru5/prism-organizer.git
 
 # ── Clone & Develop ───────────────────────────────────
 git clone https://github.com/J-Akiru5/prism-organizer.git
 cd prism-organizer && pip install -e .
+```
+
+### Uninstall
+
+```bash
+# Remove the npm package
+npm uninstall -g prism-organizer
+
+# Remove cached data (logs, backups, binary)
+rm -rf ~/.prism-organizer
 ```
 
 > **Note:** The npm package installs a Node.js wrapper that manages Python automatically.

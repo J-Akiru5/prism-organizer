@@ -1,7 +1,7 @@
 {
   "name": "prism-organizer",
-  "version": "1.2.0",
-  "description": "A beautiful CLI tool that scans, analyzes, and organizes files on Windows",
+  "version": "1.2.1",
+  "description": "A beautiful CLI file organizer — no Python required. Scan, sort, clean, find duplicates.",
   "license": "MIT",
   "author": {
     "name": "Jeff",
