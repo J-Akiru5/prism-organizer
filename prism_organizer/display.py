@@ -5,6 +5,7 @@ beautiful, consistent styling matching the application theme:
 cyan primary, purple accent, green/yellow/red status.
 """
 
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -70,27 +71,39 @@ def get_console() -> Console:
 
 
 def _safe_print(text: str) -> None:
-    """Print text safely, falling back to ASCII on encoding errors."""
+    """Print Rich renderable safely, falling back to ASCII on errors."""
     try:
         get_console().print(text)
-    except Exception:
-        # Strip Rich markup and all non-ASCII characters
+        return
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException:
+        pass
+    # Rich failed — try plain ASCII fallback
+    try:
         import re
         plain = re.sub(r'\[/?[a-z #]+\]', '', str(text))
         plain = plain.encode("ascii", errors="ignore").decode("ascii")
-        if not plain.strip():
-            return
-        _print_plain(plain + "\n")
+        if plain.strip():
+            _print_plain(plain)
+    except Exception:
+        pass
 
 
 def _print_plain(text: str) -> None:
-    """Print plain ASCII text, bypassing Rich and colorama entirely."""
-    import sys as _sys
+    """Print plain ASCII text, using the most basic method possible."""
     safe = str(text).encode("ascii", errors="replace").decode("ascii")
-    try:
-        _sys.__stdout__.write(safe + "\n")
-    except Exception:
-        pass
+    # Try all possible output methods
+    for writer in [sys.__stdout__, sys.stdout, None]:
+        try:
+            if writer:
+                writer.write(safe + "\n")
+                writer.flush()
+            else:
+                print(safe)
+            return
+        except Exception:
+            continue
 
 
 def rich_available() -> bool:
