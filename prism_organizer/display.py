@@ -153,28 +153,28 @@ def display_subheader(text: str) -> None:
 def display_success(text: str) -> None:
     """Print a green success message."""
     get_console().print(
-        f"  [{THEME['success']}]✓[/{THEME['success']}] {text}"
+        f"  [{THEME['success']}]OK[/{THEME['success']}] {text}"
     )
 
 
 def display_warning(text: str) -> None:
     """Print a yellow warning message."""
     get_console().print(
-        f"  [{THEME['warning']}]⚠[/{THEME['warning']}] {text}"
+        f"  [{THEME['warning']}]WARN[/{THEME['warning']}] {text}"
     )
 
 
 def display_error(text: str) -> None:
     """Print a red error message."""
     get_console().print(
-        f"  [{THEME['error']}]✗[/{THEME['error']}] {text}"
+        f"  [{THEME['error']}]ERR[/{THEME['error']}] {text}"
     )
 
 
 def display_info(text: str) -> None:
     """Print a muted info message."""
     get_console().print(
-        f"  [{THEME['muted']}]ℹ[/{THEME['muted']}] {text}"
+        f"  [{THEME['muted']}]INFO[/{THEME['muted']}] {text}"
     )
 
 
@@ -509,7 +509,7 @@ def display_findings(warnings: List[str]) -> None:
     items = "\n".join(f"  [yellow]•[/yellow] {w}" for w in warnings)
     panel = Panel(
         items,
-        title=f"[bold {THEME['warning']}]⚠  Findings",
+        title=f"[bold {THEME['warning']}]WARN Findings",
         border_style=THEME["warning"],
         padding=(0, 2),
     )
