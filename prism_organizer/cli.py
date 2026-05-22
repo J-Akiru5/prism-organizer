@@ -40,7 +40,7 @@ from prism_organizer.help import build_help
 from prism_organizer.display import (
     display_header, display_table, display_info, display_warning,
     display_success, display_confirm,
-    display_splash,
+    display_splash, display_exit_banner, init_display,
 )
 from prism_organizer.utils import (
     expand_path, print_header, print_success, print_error,
@@ -699,6 +699,7 @@ def main() -> None:
     common exceptions gracefully.
     """
     colorama_init(autoreset=True)
+    init_display()
 
     parser = create_parser()
     args = parser.parse_args()
@@ -723,6 +724,7 @@ def main() -> None:
             if args.verbose:
                 import traceback
                 traceback.print_exc()
+        display_exit_banner()
         sys.exit(0)
 
     # Show splash for TUI mode
@@ -754,6 +756,7 @@ def main() -> None:
     if handler:
         try:
             handler(args, config)
+            display_exit_banner()
         except KeyboardInterrupt:
             print("\n")
             print_info("Operation cancelled by user.")
@@ -763,9 +766,8 @@ def main() -> None:
             sys.exit(1)
         except Exception as e:
             print_error(f"Unexpected error: {e}")
-            if args.verbose:
-                import traceback
-                traceback.print_exc()
+            import traceback
+            traceback.print_exc()
             sys.exit(1)
     else:
         parser.print_help()

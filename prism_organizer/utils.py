@@ -171,22 +171,22 @@ def print_header(text: str) -> None:
 
 def print_success(text: str) -> None:
     """Print a success message."""
-    print(f"{Fore.GREEN}  ✓ {text}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}  OK {text}{Style.RESET_ALL}")
 
 
 def print_warning(text: str) -> None:
     """Print a warning message."""
-    print(f"{Fore.YELLOW}  ⚠ {text}{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}  WARN {text}{Style.RESET_ALL}")
 
 
 def print_error(text: str) -> None:
     """Print an error message."""
-    print(f"{Fore.RED}  ✗ {text}{Style.RESET_ALL}")
+    print(f"{Fore.RED}  ERR {text}{Style.RESET_ALL}")
 
 
 def print_info(text: str) -> None:
     """Print an info message."""
-    print(f"{Fore.WHITE}  ℹ {text}{Style.RESET_ALL}")
+    print(f"{Fore.WHITE}  INFO {text}{Style.RESET_ALL}")
 
 
 def print_item(text: str, indent: int = 4) -> None:

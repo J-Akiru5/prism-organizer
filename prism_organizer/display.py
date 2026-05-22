@@ -5,6 +5,7 @@ beautiful, consistent styling matching the application theme:
 cyan primary, purple accent, green/yellow/red status.
 """
 
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -54,15 +55,65 @@ CATEGORY_EMOJI = {
     "Misc": "\U0001f4c1",               # 📁
 }
 
-_console: Optional[Console] = None
+# ── Console (bypass Rich on problematic terminals) ────────────────────
+
+_console = None
+_use_rich = True
 
 
-def get_console() -> Console:
-    """Get (or create) the Rich console instance."""
+def init_display() -> None:
+    """Called once at startup.  Tests whether Rich can render on this
+    terminal.  If not, all display falls back to plain text."""
+    global _use_rich
+    try:
+        c = Console(force_terminal=True)
+        c.print("test", style="bold cyan")
+    except Exception:
+        _use_rich = False
+
+
+def get_console():
+    """Get the Rich console, or a dummy if Rich rendering is disabled."""
     global _console
     if _console is None:
-        _console = Console(force_terminal=True)
+        if _use_rich:
+            _console = Console(force_terminal=True)
+        else:
+            class _DummyConsole:
+                def print(self, *a, **kw): pass
+                def input(self, *a, **kw): return input(*a)
+                def clear(self): pass
+                def rule(self, *a, **kw): pass
+            _console = _DummyConsole()
     return _console
+
+
+def _safe_print(text: str) -> None:
+    """Print via Rich or plain text depending on terminal capability."""
+    if _use_rich:
+        try:
+            get_console().print(text)
+            return
+        except Exception:
+            pass
+    _print_plain(str(text))
+
+
+def _print_plain(text: str) -> None:
+    """Print plain ASCII text using multiple fallback methods."""
+    safe = str(text).encode("ascii", errors="replace").decode("ascii")
+    if not safe.strip():
+        return
+    for writer in [sys.__stdout__, sys.stdout, None]:
+        try:
+            if writer:
+                writer.write(safe + "\n")
+                writer.flush()
+            else:
+                print(safe)
+            return
+        except Exception:
+            continue
 
 
 def rich_available() -> bool:
@@ -96,7 +147,20 @@ def display_splash() -> None:
         border_style=THEME["border"],
         width=62,
     )
-    console.print(banner)
+    _safe_print(banner)
+
+
+def display_exit_banner() -> None:
+    """Print a subtle exit message with survey link after organizing."""
+    print()
+    print("  ------------------------------------------------------------")
+    print("  Sorted by Prism Organizer.")
+    print("  Want to stop AI code hallucinations in your IDE?")
+    print("  We are building Prism Context Engine.")
+    print("  Take our 2-min survey and get 1 month of Pro FREE:")
+    print("  https://bit.ly/prism-context-survey")
+    print("  ------------------------------------------------------------")
+    print()
 
 
 def display_header(text: str, style: Optional[str] = None) -> None:
@@ -114,13 +178,13 @@ def display_header(text: str, style: Optional[str] = None) -> None:
         border_style=THEME["primary"],
         padding=(0, 2),
     )
-    console.print(panel)
+    _safe_print(panel)
 
 
 def display_subheader(text: str) -> None:
     """Print a smaller sub-section header."""
     console = get_console()
-    console.print()
+    _safe_print()
     console.rule(
         f"[bold {THEME['primary']}]{text}[/]",
         style=THEME["border"],
@@ -132,29 +196,29 @@ def display_subheader(text: str) -> None:
 
 def display_success(text: str) -> None:
     """Print a green success message."""
-    get_console().print(
-        f"  [{THEME['success']}]✓[/{THEME['success']}] {text}"
+    _safe_print(
+        f"  [{THEME['success']}]OK[/{THEME['success']}] {text}"
     )
 
 
 def display_warning(text: str) -> None:
     """Print a yellow warning message."""
-    get_console().print(
-        f"  [{THEME['warning']}]⚠[/{THEME['warning']}] {text}"
+    _safe_print(
+        f"  [{THEME['warning']}]WARN[/{THEME['warning']}] {text}"
     )
 
 
 def display_error(text: str) -> None:
     """Print a red error message."""
-    get_console().print(
-        f"  [{THEME['error']}]✗[/{THEME['error']}] {text}"
+    _safe_print(
+        f"  [{THEME['error']}]ERR[/{THEME['error']}] {text}"
     )
 
 
 def display_info(text: str) -> None:
     """Print a muted info message."""
-    get_console().print(
-        f"  [{THEME['muted']}]ℹ[/{THEME['muted']}] {text}"
+    _safe_print(
+        f"  [{THEME['muted']}]INFO[/{THEME['muted']}] {text}"
     )
 
 
@@ -218,7 +282,7 @@ def display_table(
     for i, row in enumerate(rows):
         row_style = THEME["row_alt"] if i % 2 == 1 else ""
         table.add_row(*[str(v) for v in row], style=row_style)
-    console.print(table)
+    _safe_print(table)
 
 
 def display_key_value(
@@ -245,7 +309,7 @@ def display_key_value(
         border_style=THEME["border"],
         padding=(0, 2),
     )
-    console.print(panel)
+    _safe_print(panel)
 
 
 # ── Progress Bars ─────────────────────────────────────────────────────
@@ -275,6 +339,7 @@ def create_progress(transient: bool = False) -> Progress:
         TimeRemainingColumn(),
         transient=transient,
         expand=False,
+        console=get_console(),
     )
 
 
@@ -286,33 +351,29 @@ def display_progress(
 ) -> Any:
     """Iterate with a themed Rich progress bar (tqdm-compatible drop-in).
 
-    Yields items from *iterable* with progress tracking.  Pass
-    ``total`` explicitly when *iterable* is a generator (e.g.
-    from ``concurrent.futures.as_completed``).
-
-    Args:
-        iterable: Items to iterate over.
-        desc: Description label.
-        unit: Unit name (displayed in bar).
-        total: Total count.  Auto-detected via ``len()`` if None.
-
-    Yields:
-        Each item from the iterable.
+    Falls back to plain iteration if the progress bar can't render.
     """
     if total is None:
         try:
             total = len(iterable)
         except TypeError:
-            total = None  # Unknown length — bar shows count only
-    with create_progress() as progress:
-        task = progress.add_task(
-            f"  {desc}",
-            total=total,
-            completed=0,
-        )
+            total = None
+    try:
+        with create_progress() as progress:
+            task = progress.add_task(
+                f"  {desc}",
+                total=total,
+                completed=0,
+            )
+            for item in iterable:
+                yield item
+                try:
+                    progress.advance(task)
+                except Exception:
+                    pass
+    except Exception:
         for item in iterable:
             yield item
-            progress.advance(task)
 
 
 # ── Category & File Display ───────────────────────────────────────────
@@ -361,9 +422,9 @@ def display_category_tree(
             for fname in sample_files[cat][:max_files_per]:
                 branch.add(f"[{THEME['muted']}]{fname}")
 
-    console.print()
-    console.print(tree)
-    console.print()
+    _safe_print()
+    _safe_print(tree)
+    _safe_print()
 
 
 def display_top_files_list(
@@ -404,9 +465,9 @@ def display_top_files_list(
             f"[{THEME['muted']}]{bar}"
         )
 
-    console.print(f"\n  {'─' * 50}")
-    console.print("\n".join(lines))
-    console.print(f"  {'─' * 50}")
+    _safe_print(f"\n  {'─' * 50}")
+    _safe_print("\n".join(lines))
+    _safe_print(f"  {'─' * 50}")
 
 
 # ── Scan Report Components ────────────────────────────────────────────
@@ -489,11 +550,11 @@ def display_findings(warnings: List[str]) -> None:
     items = "\n".join(f"  [yellow]•[/yellow] {w}" for w in warnings)
     panel = Panel(
         items,
-        title=f"[bold {THEME['warning']}]⚠  Findings",
+        title=f"[bold {THEME['warning']}]WARN Findings",
         border_style=THEME["warning"],
         padding=(0, 2),
     )
-    console.print(panel)
+    _safe_print(panel)
 
 
 # ── Operation Preview ─────────────────────────────────────────────────

@@ -22,7 +22,7 @@ const BINARY_NAME = "prism-organizer.exe";
 const CACHE_DIR = path.join(os.homedir(), ".prism-organizer");
 const BINARY_PATH = path.join(CACHE_DIR, BINARY_NAME);
 const VERSION_PATH = path.join(CACHE_DIR, ".binary-version");
-const WRAPPER_VERSION = "1.2.14";
+const WRAPPER_VERSION = "1.2.15";
 const DOWNLOAD_URL =
   "https://github.com/J-Akiru5/prism-organizer/releases/download/v1.2.14/prism-organizer.exe";
 const PIP_URL =
