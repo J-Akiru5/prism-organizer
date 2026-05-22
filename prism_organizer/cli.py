@@ -392,8 +392,15 @@ def cmd_help(args: argparse.Namespace, config: Config) -> None:
     import sys
     topic = getattr(args, "topic", None) or ""
     text = build_help(topic)
+    # Strip Rich markup tags
     plain = re.sub(r'\[/?[a-z ]+\]', '', text)
-    sys.stdout.write(plain + "\n")
+    # Strip emoji and non-ASCII for safe Windows console output
+    plain = plain.encode("ascii", errors="ignore").decode("ascii")
+    # Write directly to stdout buffer (UTF-8)
+    try:
+        sys.stdout.buffer.write(plain.encode("utf-8") + b"\n")
+    except Exception:
+        sys.stdout.write(plain + "\n")
 
 
 def cmd_undo(args: argparse.Namespace, config: Config) -> None:
