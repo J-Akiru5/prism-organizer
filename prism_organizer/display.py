@@ -351,33 +351,29 @@ def display_progress(
 ) -> Any:
     """Iterate with a themed Rich progress bar (tqdm-compatible drop-in).
 
-    Yields items from *iterable* with progress tracking.  Pass
-    ``total`` explicitly when *iterable* is a generator (e.g.
-    from ``concurrent.futures.as_completed``).
-
-    Args:
-        iterable: Items to iterate over.
-        desc: Description label.
-        unit: Unit name (displayed in bar).
-        total: Total count.  Auto-detected via ``len()`` if None.
-
-    Yields:
-        Each item from the iterable.
+    Falls back to plain iteration if the progress bar can't render.
     """
     if total is None:
         try:
             total = len(iterable)
         except TypeError:
-            total = None  # Unknown length — bar shows count only
-    with create_progress() as progress:
-        task = progress.add_task(
-            f"  {desc}",
-            total=total,
-            completed=0,
-        )
+            total = None
+    try:
+        with create_progress() as progress:
+            task = progress.add_task(
+                f"  {desc}",
+                total=total,
+                completed=0,
+            )
+            for item in iterable:
+                yield item
+                try:
+                    progress.advance(task)
+                except Exception:
+                    pass
+    except Exception:
         for item in iterable:
             yield item
-            progress.advance(task)
 
 
 # ── Category & File Display ───────────────────────────────────────────
