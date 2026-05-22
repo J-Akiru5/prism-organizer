@@ -388,10 +388,14 @@ def cmd_help(args: argparse.Namespace, config: Config) -> None:
     Displays comprehensive documentation including quick-start guide,
     command reference, TUI navigation, configuration, and safety.
     """
-    from prism_organizer.display import get_console
-    console = get_console()
     topic = getattr(args, "topic", None) or ""
-    console.print(build_help(topic))
+    text = build_help(topic)
+    try:
+        from prism_organizer.display import get_console
+        console = get_console()
+        console.print(text)
+    except Exception:
+        print(text)
 
 
 def cmd_undo(args: argparse.Namespace, config: Config) -> None:

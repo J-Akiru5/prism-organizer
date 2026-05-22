@@ -61,7 +61,7 @@ def get_console() -> Console:
     """Get (or create) the Rich console instance."""
     global _console
     if _console is None:
-        _console = Console()
+        _console = Console(force_terminal=True)
     return _console
 
 
