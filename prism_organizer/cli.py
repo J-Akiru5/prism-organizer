@@ -390,12 +390,10 @@ def cmd_help(args: argparse.Namespace, config: Config) -> None:
     """
     topic = getattr(args, "topic", None) or ""
     text = build_help(topic)
-    try:
-        from prism_organizer.display import get_console
-        console = get_console()
-        console.print(text)
-    except Exception:
-        print(text)
+    # Strip Rich markup for reliable console output
+    import re
+    plain = re.sub(r'\[/?[a-z ]+\]', '', text)
+    print(plain)
 
 
 def cmd_undo(args: argparse.Namespace, config: Config) -> None:
