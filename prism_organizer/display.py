@@ -59,17 +59,29 @@ _console: Optional[Console] = None
 
 def get_console() -> Console:
     """Get (or create) the Rich console instance.
-    
-    Uses ``legacy_windows=False`` to avoid the Win32 console API
+
+    Uses ``force_terminal=True`` to avoid the Win32 console API
     path which conflicts with colorama on some Windows terminals.
     """
     global _console
     if _console is None:
-        try:
-            _console = Console(force_terminal=True)
-        except Exception:
-            _console = Console()
+        _console = Console(force_terminal=True)
     return _console
+
+
+def _safe_print(text: str) -> None:
+    """Print text safely, falling back to plain print on encoding errors."""
+    try:
+        get_console().print(text)
+    except (UnicodeEncodeError, UnicodeDecodeError, OSError, LookupError):
+        # Strip Rich markup and print plain
+        import re
+        plain = re.sub(r'\[/?[a-z #]+\]', '', text)
+        try:
+            import sys
+            sys.stdout.write(plain + "\n")
+        except Exception:
+            print(plain)
 
 
 def rich_available() -> bool:
@@ -103,7 +115,7 @@ def display_splash() -> None:
         border_style=THEME["border"],
         width=62,
     )
-    console.print(banner)
+    _safe_print(banner)
 
 
 def display_exit_banner() -> None:
@@ -134,13 +146,13 @@ def display_header(text: str, style: Optional[str] = None) -> None:
         border_style=THEME["primary"],
         padding=(0, 2),
     )
-    console.print(panel)
+    _safe_print(panel)
 
 
 def display_subheader(text: str) -> None:
     """Print a smaller sub-section header."""
     console = get_console()
-    console.print()
+    _safe_print()
     console.rule(
         f"[bold {THEME['primary']}]{text}[/]",
         style=THEME["border"],
@@ -152,28 +164,28 @@ def display_subheader(text: str) -> None:
 
 def display_success(text: str) -> None:
     """Print a green success message."""
-    get_console().print(
+    _safe_print(
         f"  [{THEME['success']}]OK[/{THEME['success']}] {text}"
     )
 
 
 def display_warning(text: str) -> None:
     """Print a yellow warning message."""
-    get_console().print(
+    _safe_print(
         f"  [{THEME['warning']}]WARN[/{THEME['warning']}] {text}"
     )
 
 
 def display_error(text: str) -> None:
     """Print a red error message."""
-    get_console().print(
+    _safe_print(
         f"  [{THEME['error']}]ERR[/{THEME['error']}] {text}"
     )
 
 
 def display_info(text: str) -> None:
     """Print a muted info message."""
-    get_console().print(
+    _safe_print(
         f"  [{THEME['muted']}]INFO[/{THEME['muted']}] {text}"
     )
 
@@ -238,7 +250,7 @@ def display_table(
     for i, row in enumerate(rows):
         row_style = THEME["row_alt"] if i % 2 == 1 else ""
         table.add_row(*[str(v) for v in row], style=row_style)
-    console.print(table)
+    _safe_print(table)
 
 
 def display_key_value(
@@ -265,7 +277,7 @@ def display_key_value(
         border_style=THEME["border"],
         padding=(0, 2),
     )
-    console.print(panel)
+    _safe_print(panel)
 
 
 # ── Progress Bars ─────────────────────────────────────────────────────
@@ -381,9 +393,9 @@ def display_category_tree(
             for fname in sample_files[cat][:max_files_per]:
                 branch.add(f"[{THEME['muted']}]{fname}")
 
-    console.print()
-    console.print(tree)
-    console.print()
+    _safe_print()
+    _safe_print(tree)
+    _safe_print()
 
 
 def display_top_files_list(
@@ -424,9 +436,9 @@ def display_top_files_list(
             f"[{THEME['muted']}]{bar}"
         )
 
-    console.print(f"\n  {'─' * 50}")
-    console.print("\n".join(lines))
-    console.print(f"  {'─' * 50}")
+    _safe_print(f"\n  {'─' * 50}")
+    _safe_print("\n".join(lines))
+    _safe_print(f"  {'─' * 50}")
 
 
 # ── Scan Report Components ────────────────────────────────────────────
@@ -513,7 +525,7 @@ def display_findings(warnings: List[str]) -> None:
         border_style=THEME["warning"],
         padding=(0, 2),
     )
-    console.print(panel)
+    _safe_print(panel)
 
 
 # ── Operation Preview ─────────────────────────────────────────────────
