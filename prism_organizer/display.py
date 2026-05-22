@@ -58,10 +58,17 @@ _console: Optional[Console] = None
 
 
 def get_console() -> Console:
-    """Get (or create) the Rich console instance."""
+    """Get (or create) the Rich console instance.
+    
+    Uses ``legacy_windows=False`` to avoid the Win32 console API
+    path which conflicts with colorama on some Windows terminals.
+    """
     global _console
     if _console is None:
-        _console = Console(force_terminal=True)
+        try:
+            _console = Console(force_terminal=True)
+        except Exception:
+            _console = Console()
     return _console
 
 
@@ -101,23 +108,15 @@ def display_splash() -> None:
 
 def display_exit_banner() -> None:
     """Print a subtle exit message with survey link after organizing."""
-    import sys
-    msg = (
-        "\n"
-        "  " + "\u2500" * 60 + "\n"
-        "  Sorted by Prism Organizer.\n"
-        "  Want to stop AI code hallucinations in your IDE?\n"
-        "  We are building Prism Context Engine.\n"
-        "  Take our 2-min survey and get 1 month of Pro FREE:\n"
-        "  https://docs.google.com/forms/d/e/"
-        "1FAIpQLScTX9UFoNrKFcbN432mIxwF_pCUx7RxonB8LMbyX5sEiVQMfg/"
-        "viewform?usp=sharing\n"
-        "  " + "\u2500" * 60 + "\n"
-    )
-    try:
-        sys.stdout.buffer.write(msg.encode("utf-8"))
-    except Exception:
-        sys.stdout.write(msg)
+    print()
+    print("  ------------------------------------------------------------")
+    print("  Sorted by Prism Organizer.")
+    print("  Want to stop AI code hallucinations in your IDE?")
+    print("  We are building Prism Context Engine.")
+    print("  Take our 2-min survey and get 1 month of Pro FREE:")
+    print("  https://bit.ly/prism-context-survey")
+    print("  ------------------------------------------------------------")
+    print()
 
 
 def display_header(text: str, style: Optional[str] = None) -> None:
