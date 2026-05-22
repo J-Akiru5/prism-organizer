@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from prism_organizer.display import (
     get_console, THEME,
     display_header, display_warning,
+    _safe_print,
 )
 
 
@@ -308,11 +309,9 @@ def interactive_cloud_drive_selection(
         if d.skip:
             checked_paths.append(d)
 
-    console.print(
+    _safe_print(
         "  These sync folders were detected.  Skip them to avoid\n"
-        "  conflicts, or include them to organize their contents.\n",
-        style=THEME["muted"],
-    )
+        "  conflicts, or include them to organize their contents.\n")
 
     selected = questionary.checkbox(
         "Select folders to SKIP (space to toggle, enter to confirm)",

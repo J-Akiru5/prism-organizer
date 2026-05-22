@@ -67,7 +67,7 @@ def init_display() -> None:
     global _use_rich
     try:
         c = Console(force_terminal=True)
-        c.print("", end="")
+        c.print("test", style="bold cyan")
     except Exception:
         _use_rich = False
 
