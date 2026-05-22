@@ -388,12 +388,12 @@ def cmd_help(args: argparse.Namespace, config: Config) -> None:
     Displays comprehensive documentation including quick-start guide,
     command reference, TUI navigation, configuration, and safety.
     """
+    import re
+    import sys
     topic = getattr(args, "topic", None) or ""
     text = build_help(topic)
-    # Strip Rich markup for reliable console output
-    import re
     plain = re.sub(r'\[/?[a-z ]+\]', '', text)
-    print(plain)
+    sys.stdout.write(plain + "\n")
 
 
 def cmd_undo(args: argparse.Namespace, config: Config) -> None:
