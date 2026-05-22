@@ -59,33 +59,34 @@ _console: Optional[Console] = None
 
 
 def get_console() -> Console:
-    """Get (or create) the Rich console instance.
-
-    Uses ``force_terminal=True`` to avoid the Win32 console API
-    path which conflicts with colorama on some Windows terminals.
-    """
+    """Get (or create) the Rich console instance."""
     global _console
     if _console is None:
-        _console = Console(force_terminal=True)
+        try:
+            _console = Console(force_terminal=True)
+            # Smoke-test the console
+            _console.print("", end="")
+        except Exception:
+            # Rich can't render on this terminal — use a dummy
+            class _DummyConsole:
+                def print(self, *a, **kw): pass
+                def input(self, *a, **kw): return input(*a)
+                def clear(self): pass
+                def rule(self, *a, **kw): pass
+            _console = _DummyConsole()
     return _console
 
 
 def _safe_print(text: str) -> None:
-    """Print Rich renderable safely, falling back to ASCII on errors."""
+    """Print Rich renderable safely.
+
+    On PyInstaller-packaged Windows builds, Rich's legacy Win32
+    renderer conflicts with colorama and Unicode.  This function
+    silently falls back to plain ASCII output when Rich fails.
+    """
     try:
-        get_console().print(text)
-        return
-    except (KeyboardInterrupt, SystemExit):
-        raise
-    except BaseException:
-        pass
-    # Rich failed — try plain ASCII fallback
-    try:
-        import re
-        plain = re.sub(r'\[/?[a-z #]+\]', '', str(text))
-        plain = plain.encode("ascii", errors="ignore").decode("ascii")
-        if plain.strip():
-            _print_plain(plain)
+        c = get_console()
+        c.print(text)
     except Exception:
         pass
 
