@@ -101,38 +101,23 @@ def display_splash() -> None:
 
 def display_exit_banner() -> None:
     """Print a subtle exit message with survey link after organizing."""
-    console = get_console()
-    console.print()
-    console.print(
-        "  [dim]"
-        + "\u2500" * 60
-        + "[/dim]"
-    )
-    console.print(
-        "  [dim magenta]Sorted by Prism Organizer.[/dim magenta]"
-    )
-    console.print(
-        "  [dim]Want to stop AI code hallucinations in your IDE?[/dim]"
-    )
-    console.print(
-        "  [dim]We are building [bold]Prism Context Engine[/bold].[/dim]"
-    )
-    console.print(
-        "  [dim cyan]Take our 2-min survey and get [bold]1 month of Pro FREE[/bold]:[/dim cyan]"
-    )
-    console.print(
-        "  [dim underline]"
-        "https://docs.google.com/forms/d/e/"
+    import sys
+    msg = (
+        "\n"
+        "  " + "\u2500" * 60 + "\n"
+        "  Sorted by Prism Organizer.\n"
+        "  Want to stop AI code hallucinations in your IDE?\n"
+        "  We are building Prism Context Engine.\n"
+        "  Take our 2-min survey and get 1 month of Pro FREE:\n"
+        "  https://docs.google.com/forms/d/e/"
         "1FAIpQLScTX9UFoNrKFcbN432mIxwF_pCUx7RxonB8LMbyX5sEiVQMfg/"
-        "viewform?usp=sharing"
-        "[/dim underline]"
+        "viewform?usp=sharing\n"
+        "  " + "\u2500" * 60 + "\n"
     )
-    console.print(
-        "  [dim]"
-        + "\u2500" * 60
-        + "[/dim]"
-    )
-    console.print()
+    try:
+        sys.stdout.buffer.write(msg.encode("utf-8"))
+    except Exception:
+        sys.stdout.write(msg)
 
 
 def display_header(text: str, style: Optional[str] = None) -> None:
