@@ -36,6 +36,7 @@ from prism_organizer.undo import UndoManager
 from prism_organizer.ai import AIEngine
 from prism_organizer.watcher import DirectoryWatcher, TaskScheduler
 from prism_organizer.tui import run_tui
+from prism_organizer.help import build_help
 from prism_organizer.display import (
     display_header, display_table, display_info, display_warning,
     display_success, display_confirm,
@@ -169,6 +170,11 @@ def create_parser() -> argparse.ArgumentParser:
 
     # tui
     subparsers.add_parser("tui", help="Launch interactive TUI dashboard")
+
+    # help
+    help_parser = subparsers.add_parser("help", help="Show comprehensive help and guides")
+    help_parser.add_argument("--topic", choices=["quickstart", "commands", "tui", "config", "safety", "ai"],
+                             help="Specific help topic")
 
     return parser
 
@@ -374,6 +380,18 @@ def cmd_rules(args: argparse.Namespace, config: Config) -> None:
         executor.execute_rules(plan, expand_path(args.path))
     else:
         print_info("Operation cancelled.")
+
+
+def cmd_help(args: argparse.Namespace, config: Config) -> None:
+    """Execute the help command.
+
+    Displays comprehensive documentation including quick-start guide,
+    command reference, TUI navigation, configuration, and safety.
+    """
+    from prism_organizer.display import get_console
+    console = get_console()
+    topic = getattr(args, "topic", None) or ""
+    console.print(build_help(topic))
 
 
 def cmd_undo(args: argparse.Namespace, config: Config) -> None:
@@ -719,6 +737,7 @@ def main() -> None:
         "watch": cmd_watch,
         "schedule": cmd_schedule,
         "tui": lambda a, c: run_tui(c),
+        "help": cmd_help,
     }
 
     handler = commands.get(args.command)

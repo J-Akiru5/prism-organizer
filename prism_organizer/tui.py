@@ -168,20 +168,54 @@ def _make_stats_panel(config: Config) -> Panel:
 
 
 def _make_help_panel() -> Panel:
-    """Build the help/legend panel."""
-    help_text = (
-        "\n".join(
-            f"  [{THEME['primary']}][{k}][/{THEME['primary']}] "
-            f"[{THEME['muted']}]{desc}"
-            for k, _, desc, _ in MENU_ITEMS + SECONDARY_ITEMS
-        )
-        + f"\n\n  [{THEME['muted']}]Enter a key and press Enter to select"
-    )
+    """Build the comprehensive help overlay."""
+    lines = [
+        f"[bold {THEME['accent']}]━━━ Quick Start ━━━",
+        "",
+        f"  [{THEME['primary']}][1-8][/{THEME['primary']}]  {THEME['info']}Select an action from the menu",
+        f"  [{THEME['primary']}]Arrow keys[/{THEME['primary']}]  {THEME['info']}Navigate directory / option lists",
+        f"  [{THEME['primary']}]Enter[/{THEME['primary']}]  {THEME['info']}Confirm selection",
+        f"  [{THEME['primary']}]Space[/{THEME['primary']}]  {THEME['info']}Toggle checkbox selections",
+        f"  [{THEME['primary']}]Ctrl+C[/{THEME['primary']}]  {THEME['info']}Cancel / Go back",
+        f"  [{THEME['primary']}][Q][/{THEME['primary']}]  {THEME['info']}Quit",
+        "",
+        f"[bold {THEME['accent']}]━━━ Main Menu ━━━",
+        "",
+        f"  {THEME['primary']}[1]{THEME['info']} Scan directory        {THEME['primary']}[4]{THEME['info']} Clean junk files",
+        f"  {THEME['primary']}[2]{THEME['info']} Sort files            {THEME['primary']}[5]{THEME['info']} Apply custom rules",
+        f"  {THEME['primary']}[3]{THEME['info']} Find duplicates       {THEME['primary']}[6]{THEME['info']} AI classify",
+        f"  {THEME['primary']}[7]{THEME['info']} Watch mode            {THEME['primary']}[8]{THEME['info']} Undo last operation",
+        "",
+        f"  {THEME['primary']}[S]{THEME['muted']} Schedule tasks       {THEME['primary']}[H]{THEME['muted']} This help screen",
+        "",
+        f"[bold {THEME['accent']}]━━━ Command Line ━━━",
+        "",
+        f"  {THEME['muted']}prism-organizer scan    <path>    Analyze directory",
+        f"  {THEME['muted']}prism-organizer sort    <path>    Organize files",
+        f"  {THEME['muted']}prism-organizer dupes   <path>    Find duplicates",
+        f"  {THEME['muted']}prism-organizer clean   <path>    Remove junk",
+        f"  {THEME['muted']}prism-organizer undo              Reverse last action",
+        f"  {THEME['muted']}prism-organizer help              Full help",
+        "",
+        f"[bold {THEME['accent']}]━━━ Safety ━━━",
+        "",
+        f"  {THEME['success']}All operations show a preview before executing.",
+        f"  {THEME['success']}Deleted files go to .prism-organizer_backup/",
+        f"  {THEME['success']}Every action is logged and fully undoable.",
+        f"  {THEME['success']}Cloud drives are auto-detected and skipped.",
+        "",
+        f"[bold {THEME['accent']}]━━━ Tips ━━━",
+        "",
+        f"  {THEME['muted']}Use --workers 8 for faster scanning on SSDs",
+        f"  {THEME['muted']}Use --perceptual for near-duplicate image detection",
+        f"  {THEME['muted']}Use --review-folder for safe manual review",
+        f"  {THEME['muted']}Run 'prism-organizer help' for full documentation",
+    ]
     return Panel(
-        help_text,
-        title=f"[bold {THEME['primary']}]\u2753  Keyboard Shortcuts",
-        border_style=THEME["border"],
-        padding=(1, 1),
+        "\n".join(lines),
+        title=f"[bold {THEME['accent']}]\u2753  Help & Documentation",
+        border_style=THEME["primary"],
+        padding=(1, 2),
     )
 
 

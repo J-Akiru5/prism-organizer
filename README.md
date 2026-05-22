@@ -66,7 +66,25 @@ prism-organizer --version
 prism-organizer --help
 ```
 
-> **PATH Troubleshooting**: If the command isn't recognized, run: `python -m prism_organizer --help`
+### Get Help
+
+```bash
+# Full help system with quick-start, command ref, safety, AI setup
+prism-organizer help
+
+# Specific topics
+prism-organizer help --topic quickstart
+prism-organizer help --topic tui
+prism-organizer help --topic config
+prism-organizer help --topic safety
+prism-organizer help --topic ai
+prism-organizer help --topic commands
+```
+
+> **Screenshots** of the TUI dashboard and scan reports are available on the
+> [GitHub Releases page](https://github.com/J-Akiru5/prism-organizer/releases).
+
+---> **PATH Troubleshooting**: If the command isn't recognized, run: `python -m prism_organizer --help`
 
 ## Usage
 
