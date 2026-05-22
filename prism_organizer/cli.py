@@ -40,7 +40,7 @@ from prism_organizer.help import build_help
 from prism_organizer.display import (
     display_header, display_table, display_info, display_warning,
     display_success, display_confirm,
-    display_splash,
+    display_splash, display_exit_banner,
 )
 from prism_organizer.utils import (
     expand_path, print_header, print_success, print_error,
@@ -722,6 +722,7 @@ def main() -> None:
             if args.verbose:
                 import traceback
                 traceback.print_exc()
+        display_exit_banner()
         sys.exit(0)
 
     # Show splash for TUI mode
@@ -753,6 +754,7 @@ def main() -> None:
     if handler:
         try:
             handler(args, config)
+            display_exit_banner()
         except KeyboardInterrupt:
             print("\n")
             print_info("Operation cancelled by user.")
