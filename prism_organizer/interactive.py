@@ -313,13 +313,16 @@ def interactive_cloud_drive_selection(
         "  These sync folders were detected.  Skip them to avoid\n"
         "  conflicts, or include them to organize their contents.\n")
 
-    selected = questionary.checkbox(
-        "Select folders to SKIP (space to toggle, enter to confirm)",
-        choices=choices,
-        style=_questionary_style(),
-        qmark="\u25b6",
-        instruction="(space = toggle, enter = confirm)",
-    ).unsafe_ask()
+    try:
+        selected = questionary.checkbox(
+            "Select folders to SKIP (space to toggle, enter to confirm)",
+            choices=choices,
+            style=_questionary_style(),
+            qmark="\u25b6",
+            instruction="(space = toggle, enter = confirm)",
+        ).unsafe_ask()
+    except Exception:
+        selected = None
 
     if selected is None:
         # User cancelled — skip all
