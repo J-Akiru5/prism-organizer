@@ -765,9 +765,8 @@ def main() -> None:
             sys.exit(1)
         except Exception as e:
             print_error(f"Unexpected error: {e}")
-            if args.verbose:
-                import traceback
-                traceback.print_exc()
+            import traceback
+            traceback.print_exc()
             sys.exit(1)
     else:
         parser.print_help()
