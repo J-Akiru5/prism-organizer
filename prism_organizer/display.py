@@ -73,21 +73,24 @@ def _safe_print(text: str) -> None:
     """Print text safely, falling back to ASCII on encoding errors."""
     try:
         get_console().print(text)
-    except (UnicodeEncodeError, UnicodeDecodeError, OSError, LookupError, Exception):
+    except Exception:
         # Strip Rich markup and all non-ASCII characters
         import re
         plain = re.sub(r'\[/?[a-z #]+\]', '', str(text))
         plain = plain.encode("ascii", errors="ignore").decode("ascii")
         if not plain.strip():
             return
-        try:
-            import sys
-            sys.stdout.write(plain + "\n")
-        except Exception:
-            try:
-                print(plain)
-            except Exception:
-                pass
+        _print_plain(plain + "\n")
+
+
+def _print_plain(text: str) -> None:
+    """Print plain ASCII text, bypassing Rich and colorama entirely."""
+    import sys as _sys
+    safe = str(text).encode("ascii", errors="replace").decode("ascii")
+    try:
+        _sys.__stdout__.write(safe + "\n")
+    except Exception:
+        pass
 
 
 def rich_available() -> bool:
