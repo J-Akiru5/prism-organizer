@@ -15,6 +15,8 @@ const { spawn, execSync } = require("child_process");
 const { existsSync, mkdirSync, createWriteStream, unlinkSync } = require("fs");
 const path = require("path");
 const os = require("os");
+const crypto = require("crypto");
+const fs = require("fs");
 
 const BINARY_NAME = "prism-organizer.exe";
 const CACHE_DIR = path.join(os.homedir(), ".prism-organizer");
@@ -22,11 +24,25 @@ const BINARY_PATH = path.join(CACHE_DIR, BINARY_NAME);
 const VERSION_PATH = path.join(CACHE_DIR, ".binary-version");
 const WRAPPER_VERSION = "1.2.14";
 const DOWNLOAD_URL =
-  "https://github.com/J-Akiru5/prism-organizer/releases/latest/download/prism-organizer.exe";
+  "https://github.com/J-Akiru5/prism-organizer/releases/download/v1.2.14/prism-organizer.exe";
 const PIP_URL =
-  "git+https://github.com/J-Akiru5/prism-organizer.git";
+  "prism-organizer==1.2.14";
 const PYTHON_CMD = "python";
 const PACKAGE_MODULE = "prism_organizer";
+
+const CHECKSUM_REGISTRY = {
+  "1.2.14": "644da877c8e96bf287c71d604e38e137b02db7c271cfcfcb3fb8caec16db04df" // Validated build checksum
+};
+
+function getFileSha256(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha256");
+    const stream = fs.createReadStream(filePath);
+    stream.on("data", (data) => hash.update(data));
+    stream.on("end", () => resolve(hash.digest("hex")));
+    stream.on("error", (err) => reject(err));
+  });
+}
 
 // ── Output helpers ────────────────────────────────────────────────────
 
@@ -103,6 +119,7 @@ function httpGet(url, maxRedirects, callback) {
 function downloadBinary() {
   const { readFileSync, writeFileSync } = require("fs");
   const tmpPath = BINARY_PATH + ".tmp";
+  
   return new Promise((resolve) => {
     // Cache hit — check if version matches
     if (existsSync(BINARY_PATH)) {
@@ -120,76 +137,109 @@ function downloadBinary() {
       }
     }
 
-    // Recover from interrupted download (leftover .tmp file)
-    const tmpPath = BINARY_PATH + ".tmp";
-    if (!existsSync(BINARY_PATH) && existsSync(tmpPath)) {
-      try {
-        require("fs").renameSync(tmpPath, BINARY_PATH);
-        try { writeFileSync(VERSION_PATH, WRAPPER_VERSION, "utf-8"); } catch (_) {}
-        cyan("Recovered partially downloaded binary.");
-        return resolve(BINARY_PATH);
-      } catch (_) {
+    const startDownload = () => {
+      mkdirSync(CACHE_DIR, { recursive: true });
+      cyan("Downloading Prism Organizer (one-time, ~30MB)...");
+      cyan("This removes the Python requirement entirely.");
+
+      httpGet(DOWNLOAD_URL, 5, (err, res) => {
+        if (err) {
+          yellow(`Binary download unavailable (${err.message}).`);
+          resolve(null);
+          return;
+        }
+
+        // Clean up any existing tmp file
         try { unlinkSync(tmpPath); } catch (_) {}
-      }
+
+        const total = parseInt(res.headers["content-length"], 10) || 0;
+        let downloaded = 0;
+        const file = createWriteStream(tmpPath);
+
+        res.on("data", (chunk) => {
+          downloaded += chunk.length;
+          if (total) process.stderr.write(`\r  Downloading... ${((downloaded / total) * 100).toFixed(0)}%`);
+        });
+
+        res.pipe(file);
+
+        file.on("finish", () => {
+          file.close(async () => {
+            try {
+              const hash = await getFileSha256(tmpPath);
+              const expectedHash = CHECKSUM_REGISTRY[WRAPPER_VERSION];
+              if (!expectedHash) {
+                yellow(`Warning: No registered checksum for version ${WRAPPER_VERSION}. Continuing with caution.`);
+              } else if (hash !== expectedHash) {
+                throw new Error(`SHA-256 verification failed!\n  Expected: ${expectedHash}\n  Actual:   ${hash}`);
+              } else {
+                green("SHA-256 checksum verified successfully.");
+              }
+
+              // Atomically replace old binary with new one
+              let finalPath = tmpPath;
+              try { unlinkSync(BINARY_PATH); } catch (_) {}
+              try {
+                require("fs").renameSync(tmpPath, BINARY_PATH);
+                finalPath = BINARY_PATH;
+              } catch (_) {
+                yellow("Binary will update on next restart. Using downloaded copy.");
+              }
+              if (finalPath === BINARY_PATH) {
+                try {
+                  writeFileSync(VERSION_PATH, WRAPPER_VERSION, "utf-8");
+                } catch (_) {}
+              }
+              process.stderr.write("\r\x1b[K");
+              green("Download complete. Prism Organizer is ready!");
+              resolve(finalPath);
+            } catch (e) {
+              try { unlinkSync(tmpPath); } catch (_) {}
+              try { unlinkSync(BINARY_PATH); } catch (_) {}
+              red(`Binary validation failed: ${e.message}`);
+              resolve(null);
+            }
+          });
+        });
+
+        file.on("error", (e) => {
+          try { unlinkSync(tmpPath); } catch (_) {}
+          try { unlinkSync(BINARY_PATH); } catch (_) {}
+          yellow(`Download failed: ${e.message}`);
+          resolve(null);
+        });
+      });
+    };
+
+    // Recover from interrupted download (leftover .tmp file)
+    if (!existsSync(BINARY_PATH) && existsSync(tmpPath)) {
+      cyan("Leftover temporary binary found, validating checksum...");
+      getFileSha256(tmpPath)
+        .then((hash) => {
+          const expectedHash = CHECKSUM_REGISTRY[WRAPPER_VERSION];
+          if (expectedHash && hash === expectedHash) {
+            try {
+              require("fs").renameSync(tmpPath, BINARY_PATH);
+              try { writeFileSync(VERSION_PATH, WRAPPER_VERSION, "utf-8"); } catch (_) {}
+              green("Verified and recovered complete binary.");
+              resolve(BINARY_PATH);
+            } catch (_) {
+              try { unlinkSync(tmpPath); } catch (_) {}
+              resolve(null);
+            }
+          } else {
+            yellow("Leftover binary checksum invalid. Deleting and re-downloading...");
+            try { unlinkSync(tmpPath); } catch (_) {}
+            startDownload();
+          }
+        })
+        .catch(() => {
+          try { unlinkSync(tmpPath); } catch (_) {}
+          startDownload();
+        });
+    } else {
+      startDownload();
     }
-
-    mkdirSync(CACHE_DIR, { recursive: true });
-    cyan("Downloading Prism Organizer (one-time, ~30MB)...");
-    cyan("This removes the Python requirement entirely.");
-
-    // Download to temp file first to avoid EBUSY on locked binary
-
-    httpGet(DOWNLOAD_URL, 5, (err, res) => {
-      if (err) {
-        yellow(`Binary download unavailable (${err.message}).`);
-        resolve(null);
-        return;
-      }
-
-      // Clean up any existing tmp file
-      try { unlinkSync(tmpPath); } catch (_) {}
-
-      const total = parseInt(res.headers["content-length"], 10) || 0;
-      let downloaded = 0;
-      const file = createWriteStream(tmpPath);
-
-      res.on("data", (chunk) => {
-        downloaded += chunk.length;
-        if (total) process.stderr.write(`\r  Downloading... ${((downloaded / total) * 100).toFixed(0)}%`);
-      });
-
-      res.pipe(file);
-
-      file.on("finish", () => {
-        file.close();
-        // Atomically replace old binary with new one
-        let finalPath = tmpPath;
-        try { unlinkSync(BINARY_PATH); } catch (_) {}
-        try {
-          require("fs").renameSync(tmpPath, BINARY_PATH);
-          finalPath = BINARY_PATH;
-        } catch (_) {
-          yellow("Binary will update on next restart. Using downloaded copy.");
-        }
-        // Write version marker — only if binary was placed successfully
-        // (if rename failed and we're using .tmp, the recovery code
-        // on next run will handle the rename and write the marker then)
-        if (finalPath === BINARY_PATH) {
-          try {
-            writeFileSync(VERSION_PATH, WRAPPER_VERSION, "utf-8");
-          } catch (_) {}
-        }
-        process.stderr.write("\r\x1b[K");
-        green("Download complete. Prism Organizer is ready!");
-        resolve(finalPath);
-      });
-
-      file.on("error", (e) => {
-        try { unlinkSync(BINARY_PATH); } catch (_) {}
-        yellow(`Download failed: ${e.message}`);
-        resolve(null);
-      });
-    });
   });
 }
 

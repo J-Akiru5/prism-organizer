@@ -249,7 +249,11 @@ class TaskScheduler:
         task_name = f"{self.APP_NAME} - {command} {resolved.name}"
 
         exe = sys.executable
-        module_args = f"-m prism_organizer {command} \"{resolved}\" --confirm"
+        
+        # Escape quotes inside the /TR command string to prevent argument-splitting vulnerabilities.
+        exe_escaped = str(exe).replace('"', '\\"')
+        resolved_escaped = str(resolved).replace('"', '\\"')
+        task_run = f'\\"{exe_escaped}\\" -m prism_organizer {command} \\"{resolved_escaped}\\" --confirm'
 
         schedule_map = {
             "daily": "DAILY",
@@ -261,7 +265,7 @@ class TaskScheduler:
         cmd = [
             "schtasks", "/Create", "/SC", sc,
             "/TN", task_name,
-            "/TR", f'"{exe}" {module_args}',
+            "/TR", task_run,
             "/ST", time_str,
             "/F",
         ]

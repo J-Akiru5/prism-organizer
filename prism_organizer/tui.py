@@ -10,6 +10,7 @@ Uses ``rich.live.Live`` for real-time panel updates.
 import time
 import os
 import sys
+import signal
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -240,24 +241,60 @@ def _build_layout(config: Config, active: str = "") -> Layout:
 
     Layout: top banner, middle (menu | stats), bottom (log | help).
     """
-    layout = Layout()
-    layout.split(
-        Layout(name="banner", size=5),
-        Layout(name="main", ratio=1),
-    )
-    layout["main"].split_row(
-        Layout(name="menu", ratio=2),
-        Layout(name="right", ratio=1),
-    )
-    layout["right"].split(
-        Layout(name="stats", ratio=1),
-        Layout(name="log", ratio=2),
-    )
+    try:
+        terminal_lines = os.get_terminal_size().lines
+    except OSError:
+        terminal_lines = 24
 
-    layout["banner"].update(_make_banner())
+    # Keep a 3-line cushion at the bottom of the terminal viewport to prevent scrolling
+    # during user input prompts and OS newlines.
+    layout = Layout(size=max(10, terminal_lines - 3))
+
+    if terminal_lines < 22:
+        layout.split(
+            Layout(name="main", ratio=1),
+        )
+    else:
+        layout.split(
+            Layout(name="banner", size=5),
+            Layout(name="main", ratio=1),
+        )
+
+    if terminal_lines < 15:
+        layout["main"].split_row(
+            Layout(name="menu", ratio=1),
+        )
+    else:
+        layout["main"].split_row(
+            Layout(name="menu", ratio=2),
+            Layout(name="right", ratio=1),
+        )
+        if terminal_lines < 20:
+            layout["right"].split(
+                Layout(name="log", ratio=1),
+            )
+        else:
+            layout["right"].split(
+                Layout(name="stats", ratio=1),
+                Layout(name="log", ratio=2),
+            )
+
+    try:
+        layout["banner"].update(_make_banner())
+    except KeyError:
+        pass
+
     layout["menu"].update(_make_menu())
-    layout["stats"].update(_make_stats_panel(config))
-    layout["log"].update(_make_log_panel())
+
+    try:
+        layout["stats"].update(_make_stats_panel(config))
+    except KeyError:
+        pass
+
+    try:
+        layout["log"].update(_make_log_panel())
+    except KeyError:
+        pass
 
     return layout
 
@@ -728,6 +765,249 @@ ACTION_MAP = {
 }
 
 
+# Track resize events via Unix signals
+_resize_triggered = False
+
+def _handle_sigwinch(signum, frame):
+    global _resize_triggered
+    _resize_triggered = True
+
+if hasattr(signal, "SIGWINCH"):
+    signal.signal(signal.SIGWINCH, _handle_sigwinch)
+
+
+def is_interactive_tui() -> bool:
+    """Check if standard input is a TTY and interactive modules are importable."""
+    if not sys.stdin.isatty():
+        return False
+    if os.name == 'nt':
+        try:
+            import msvcrt
+            return True
+        except ImportError:
+            return False
+    else:
+        try:
+            import select
+            import termios
+            import tty
+            return True
+        except ImportError:
+            return False
+
+
+def read_key_nonblocking() -> Optional[str]:
+    """Read a single keypress without blocking, returning None if no key is pressed.
+    
+    Provides standard fallbacks if platform-specific modules are not available.
+    """
+    if os.name == 'nt':
+        try:
+            import msvcrt
+            if msvcrt.kbhit():
+                ch = msvcrt.getch()
+                if ch == b'\x03':  # Ctrl+C
+                    raise KeyboardInterrupt
+                if ch in (b'\x00', b'\xe0'):
+                    if msvcrt.kbhit():
+                        msvcrt.getch()  # Consume scan code
+                    return None
+                try:
+                    return ch.decode('utf-8', errors='ignore')
+                except Exception:
+                    return None
+        except (ImportError, OSError):
+            pass
+    else:
+        try:
+            import select
+            import termios
+            import tty
+            fd = sys.stdin.fileno()
+            # Only use non-blocking raw read if standard input is a TTY/interactive
+            if os.isatty(fd):
+                rlist, _, _ = select.select([sys.stdin], [], [], 0.0)
+                if rlist:
+                    old_settings = termios.tcgetattr(fd)
+                    try:
+                        tty.setraw(fd)
+                        ch = sys.stdin.read(1)
+                    finally:
+                        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+                    if ch == '\x03':  # Ctrl+C
+                        raise KeyboardInterrupt
+                    return ch
+        except (ImportError, OSError):
+            pass
+    return None
+
+
+def get_user_choice(console, config) -> str:
+    """Prompt the user for a menu choice with real-time resize handling and no-scroll layout."""
+    if not is_interactive_tui():
+        # Safe fallback to standard blocking input if not in an interactive tty environment
+        try:
+            return console.input("  > ").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            raise KeyboardInterrupt
+
+    global _resize_triggered
+    _resize_triggered = False  # Reset signal trigger flag
+    
+    current_input = ""
+    try:
+        last_size = os.get_terminal_size()
+    except OSError:
+        last_size = (80, 24)
+
+    prompt_text = (
+        "  [dim cyan]" + "─" * 25 + "[/dim cyan] "
+        "[bold magenta]Enter choice[/bold magenta] "
+        "[dim cyan]" + "─" * 25 + "[/dim cyan] "
+        "[bold cyan]>[/bold cyan] "
+    )
+
+    def draw_full_screen() -> None:
+        """Clear the viewport and print the layout + current prompt."""
+        # Clean both screen and scrollback using the ANSI escape codes to prevent duplicates
+        console.clear()
+        console.print("\033[3J", end="")
+        console.print(_build_layout(config))
+        console.print(prompt_text + f"[white]{current_input}[/white]", end="", highlight=False)
+
+    draw_full_screen()
+
+    while True:
+        # Check if resize occurred via SIGWINCH signal or polling (on Windows/fallback)
+        resized = False
+        if hasattr(signal, "SIGWINCH"):
+            if _resize_triggered:
+                _resize_triggered = False
+                resized = True
+        else:
+            try:
+                current_size = os.get_terminal_size()
+            except OSError:
+                current_size = last_size
+            if current_size != last_size:
+                last_size = current_size
+                resized = True
+
+        if resized:
+            draw_full_screen()
+
+        try:
+            key = read_key_nonblocking()
+        except KeyboardInterrupt:
+            # Reprint standard newline before exit/handling
+            console.print()
+            raise KeyboardInterrupt
+
+        if key is not None:
+            # Handle Enter/Return keys
+            if key in ('\r', '\n'):
+                console.print()
+                return current_input.strip().lower()
+
+            # Handle Backspace keys
+            elif key in ('\x08', '\x7f', '\b'):
+                if len(current_input) > 0:
+                    current_input = current_input[:-1]
+                    draw_full_screen()
+
+            # Handle normal printable characters
+            elif len(key) == 1 and key.isprintable():
+                current_input += key
+                draw_full_screen()
+
+        # Efficient sleep (50ms) to keep CPU usage at 0%
+        time.sleep(0.05)
+
+
+def wait_for_enter(console, panel_builder_fn) -> None:
+    """Wait for the user to press Enter while dynamically redrawing a panel on terminal resize."""
+    if not is_interactive_tui():
+        try:
+            console.input("\n  [dim]Press Enter to return to menu...[/dim]")
+            return
+        except (KeyboardInterrupt, EOFError):
+            raise KeyboardInterrupt
+
+    global _resize_triggered
+    _resize_triggered = False
+
+    try:
+        last_size = os.get_terminal_size()
+    except OSError:
+        last_size = (80, 24)
+
+    prompt_text = "\n  [dim]Press Enter to return to menu...[/dim]"
+
+    def draw_full_screen() -> None:
+        console.clear()
+        console.print("\033[3J", end="")
+        console.print(panel_builder_fn())
+        console.print(prompt_text, end="")
+
+    draw_full_screen()
+
+    while True:
+        resized = False
+        if hasattr(signal, "SIGWINCH"):
+            if _resize_triggered:
+                _resize_triggered = False
+                resized = True
+        else:
+            try:
+                current_size = os.get_terminal_size()
+            except OSError:
+                current_size = last_size
+            if current_size != last_size:
+                last_size = current_size
+                resized = True
+
+        if resized:
+            draw_full_screen()
+
+        try:
+            key = read_key_nonblocking()
+        except KeyboardInterrupt:
+            console.print()
+            raise KeyboardInterrupt
+
+        if key in ('\r', '\n'):
+            console.print()
+            return
+
+        time.sleep(0.05)
+
+
+def simple_wait_for_enter(console) -> None:
+    """Wait for the user to press Enter in a non-blocking loop to maintain signal responsiveness."""
+    if not is_interactive_tui():
+        try:
+            console.input("\n  [dim]Press Enter to return to menu...[/dim]")
+            return
+        except (KeyboardInterrupt, EOFError):
+            raise KeyboardInterrupt
+
+    prompt_text = "\n  [dim]Press Enter to return to menu...[/dim]"
+    console.print(prompt_text, end="")
+
+    while True:
+        try:
+            key = read_key_nonblocking()
+        except KeyboardInterrupt:
+            console.print()
+            raise KeyboardInterrupt
+
+        if key in ('\r', '\n'):
+            console.print()
+            return
+
+        time.sleep(0.05)
+
+
 def run_tui(config: Optional[Config] = None) -> None:
     """Launch the interactive TUI dashboard.
 
@@ -751,43 +1031,39 @@ def run_tui(config: Optional[Config] = None) -> None:
     console = get_console()
     add_log("Prism Organizer ready.  Select an action.", "info")
 
-    while True:
-        console.print(_build_layout(config))
-        try:
-            key = console.input(
-                "\n  [dim cyan]" + "─" * 25 + "[/dim cyan] "
-                "[bold magenta]Enter choice[/bold magenta] "
-                "[dim cyan]" + "─" * 25 + "[/dim cyan]\n"
-                "  [bold cyan]>[/bold cyan] "
-            ).strip().lower()
-        except (KeyboardInterrupt, EOFError):
-            console.print()
-            add_log("Goodbye!", "info")
-            break
+    def clear() -> None:
+        """Clear both the visible screen viewport and the scrollback buffer to prevent duplicates."""
+        console.clear()
+        console.print("\033[3J", end="")
 
-        if key == "q":
-            add_log("Goodbye!", "info")
-            break
-
-        if key == "h":
-            console.clear()
-            console.print(_make_help_panel())
-            console.input("\n  [dim]Press Enter to return to menu...[/dim]")
-            console.clear()
-            continue
-
-        if key in ACTION_MAP:
-            action_name, action_fn = ACTION_MAP[key]
-            console.clear()
+    with console.screen():
+        while True:
             try:
-                action_fn(config)
-            except Exception as e:
-                display_error(f"Error: {e}")
-                add_log(f"Error in {action_name}: {e}", "error")
-            console.input(
-                "\n  [dim]Press Enter to return to menu...[/dim]"
-            )
-            console.clear()
-        else:
-            add_log(f"Unknown key: {key}", "warning")
-            console.clear()
+                key = get_user_choice(console, config)
+            except (KeyboardInterrupt, EOFError):
+                console.print()
+                add_log("Goodbye!", "info")
+                break
+
+            if key == "q":
+                add_log("Goodbye!", "info")
+                break
+
+            if key == "h":
+                wait_for_enter(console, _make_help_panel)
+                continue
+
+            if key in ACTION_MAP:
+                action_name, action_fn = ACTION_MAP[key]
+                clear()
+                try:
+                    action_fn(config)
+                except Exception as e:
+                    display_error(f"Error: {e}")
+                    add_log(f"Error in {action_name}: {e}", "error")
+                simple_wait_for_enter(console)
+                clear()
+            else:
+                add_log(f"Unknown key: {key}", "warning")
+                clear()
+

@@ -577,11 +577,12 @@ def _build_classification_plan(
 
 def _build_rename_plan(renames: list) -> Any:
     """Build a temporary RulePlan from AI rename suggestions."""
-    from prism_organizer.rules import RulePlan, RuleMatch
+    from prism_organizer.rules import RulePlan, RuleMatch, sanitize_suggested_stem
 
     plan = RulePlan()
     for r in renames:
-        new_name = r.new_name + r.file_info.extension
+        safe_stem = sanitize_suggested_stem(r.new_name)
+        new_name = safe_stem + r.file_info.extension
         plan.matches.append(RuleMatch(
             file_info=r.file_info,
             rule_name="AI Rename",

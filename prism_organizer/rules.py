@@ -15,6 +15,55 @@ from prism_organizer.scanner import FileInfo, ScanResult
 from prism_organizer.utils import expand_path, parse_size, parse_age, safe_filename
 
 
+def sanitize_suggested_stem(stem: str) -> str:
+    """Sanitize suggested filename stem to prevent path traversal and invalid chars.
+
+    Strips directory separators (/ and \\), parent directory sequences (..),
+    and invalid characters (: * ? \" < > |).
+    """
+    if not stem:
+        return "renamed_file"
+
+    sanitized = stem.replace("/", "").replace("\\", "")
+    while ".." in sanitized:
+        sanitized = sanitized.replace("..", "")
+
+    invalid_chars = [':', '*', '?', '"', '<', '>', '|']
+    for char in invalid_chars:
+        sanitized = sanitized.replace(char, "")
+
+    sanitized = sanitized.strip(". ")
+    if not sanitized:
+        sanitized = "renamed_file"
+    return sanitized
+
+
+def sanitize_filename_traversal(filename: str) -> str:
+    """Sanitize a full filename (stem + extension) to prevent path traversal and invalid chars."""
+    if not filename:
+        return "file"
+    
+    if "." in filename:
+        if filename.startswith(".") and filename.count(".") == 1:
+            stem = filename
+            suffix = ""
+        else:
+            stem, suffix = filename.rsplit(".", 1)
+            suffix = "." + suffix
+    else:
+        stem = filename
+        suffix = ""
+
+    safe_stem = sanitize_suggested_stem(stem)
+    safe_suffix = suffix.replace("/", "").replace("\\", "").replace("..", "")
+    for char in [':', '*', '?', '"', '<', '>', '|']:
+        safe_suffix = safe_suffix.replace(char, "")
+
+    if safe_suffix and not safe_suffix.startswith("."):
+        safe_suffix = "." + safe_suffix
+    return safe_stem + safe_suffix
+
+
 @dataclass
 class RuleMatch:
     """A file matched by a rule."""
@@ -88,6 +137,8 @@ class RuleEngine:
                             new_name = self._apply_rename_pattern(
                                 rule["rename_pattern"], file_info
                             )
+                            if new_name:
+                                new_name = sanitize_filename_traversal(new_name)
                         
                         plan.matches.append(RuleMatch(
                             file_info=file_info,

@@ -104,3 +104,22 @@ def test_multiple_extension_match(rule_dir):
     plan = engine.evaluate(result)
 
     assert plan.total_matches == 2
+
+
+def test_sanitization():
+    from prism_organizer.rules import sanitize_suggested_stem, sanitize_filename_traversal
+
+    # Test stem sanitization
+    assert sanitize_suggested_stem("clean-name") == "clean-name"
+    assert sanitize_suggested_stem("../../evil-name") == "evil-name"
+    assert sanitize_suggested_stem("foo/bar\\baz") == "foobarbaz"
+    assert sanitize_suggested_stem("evil..name") == "evilname"
+    assert sanitize_suggested_stem("name:with*restricted?chars\"<|>") == "namewithrestrictedchars"
+    assert sanitize_suggested_stem("   ...   ") == "renamed_file"
+    assert sanitize_suggested_stem("") == "renamed_file"
+
+    # Test full filename sanitization
+    assert sanitize_filename_traversal("../../evil.jpg") == "evil.jpg"
+    assert sanitize_filename_traversal("foo/bar.txt") == "foobar.txt"
+    assert sanitize_filename_traversal("test:file*name?.png") == "testfilename.png"
+    assert sanitize_filename_traversal(".hidden") == "hidden"
