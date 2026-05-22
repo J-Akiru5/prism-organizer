@@ -339,6 +339,7 @@ def create_progress(transient: bool = False) -> Progress:
         TimeRemainingColumn(),
         transient=transient,
         expand=False,
+        console=get_console(),
     )
 
 
