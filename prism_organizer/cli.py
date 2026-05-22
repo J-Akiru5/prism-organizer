@@ -40,7 +40,7 @@ from prism_organizer.help import build_help
 from prism_organizer.display import (
     display_header, display_table, display_info, display_warning,
     display_success, display_confirm,
-    display_splash, display_exit_banner,
+    display_splash, display_exit_banner, init_display,
 )
 from prism_organizer.utils import (
     expand_path, print_header, print_success, print_error,
@@ -698,6 +698,7 @@ def main() -> None:
     common exceptions gracefully.
     """
     colorama_init(autoreset=True)
+    init_display()
 
     parser = create_parser()
     args = parser.parse_args()

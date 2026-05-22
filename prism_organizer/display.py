@@ -55,19 +55,30 @@ CATEGORY_EMOJI = {
     "Misc": "\U0001f4c1",               # 📁
 }
 
-_console: Optional[Console] = None
+# ── Console (bypass Rich on problematic terminals) ────────────────────
+
+_console = None
+_use_rich = True
 
 
-def get_console() -> Console:
-    """Get (or create) the Rich console instance."""
+def init_display() -> None:
+    """Called once at startup.  Tests whether Rich can render on this
+    terminal.  If not, all display falls back to plain text."""
+    global _use_rich
+    try:
+        c = Console(force_terminal=True)
+        c.print("", end="")
+    except Exception:
+        _use_rich = False
+
+
+def get_console():
+    """Get the Rich console, or a dummy if Rich rendering is disabled."""
     global _console
     if _console is None:
-        try:
+        if _use_rich:
             _console = Console(force_terminal=True)
-            # Smoke-test the console
-            _console.print("", end="")
-        except Exception:
-            # Rich can't render on this terminal — use a dummy
+        else:
             class _DummyConsole:
                 def print(self, *a, **kw): pass
                 def input(self, *a, **kw): return input(*a)
@@ -78,23 +89,21 @@ def get_console() -> Console:
 
 
 def _safe_print(text: str) -> None:
-    """Print Rich renderable safely.
-
-    On PyInstaller-packaged Windows builds, Rich's legacy Win32
-    renderer conflicts with colorama and Unicode.  This function
-    silently falls back to plain ASCII output when Rich fails.
-    """
-    try:
-        c = get_console()
-        c.print(text)
-    except Exception:
-        pass
+    """Print via Rich or plain text depending on terminal capability."""
+    if _use_rich:
+        try:
+            get_console().print(text)
+            return
+        except Exception:
+            pass
+    _print_plain(str(text))
 
 
 def _print_plain(text: str) -> None:
-    """Print plain ASCII text, using the most basic method possible."""
+    """Print plain ASCII text using multiple fallback methods."""
     safe = str(text).encode("ascii", errors="replace").decode("ascii")
-    # Try all possible output methods
+    if not safe.strip():
+        return
     for writer in [sys.__stdout__, sys.stdout, None]:
         try:
             if writer:
