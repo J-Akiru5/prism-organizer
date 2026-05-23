@@ -83,6 +83,7 @@ class AIProvider:
         self.base_url: str = ai_cfg.get("base_url", "")
         self._features: Dict[str, bool] = ai_cfg.get("features", {})
         self._min_confidence: float = ai_cfg.get("min_confidence", 0.7)
+        self._disable_previews: bool = ai_cfg.get("disable_previews", False)
 
     @property
     def classify_enabled(self) -> bool:
@@ -95,6 +96,10 @@ class AIProvider:
     @property
     def min_confidence(self) -> float:
         return self._min_confidence
+
+    @property
+    def disable_ai_previews(self) -> bool:
+        return self._disable_previews
 
     def check_available(self) -> bool:
         """Return True if the provider's client library can be imported."""
@@ -354,9 +359,10 @@ class AIEngine:
 
     # ── Helpers ───────────────────────────────────────────────────
 
-    @staticmethod
-    def _read_preview(fi: FileInfo, max_bytes: int = 2048) -> str:
+    def _read_preview(self, fi: FileInfo, max_bytes: int = 2048) -> str:
         """Read a short preview of a text file's contents."""
+        if self.provider.disable_ai_previews:
+            return ""
         text_exts = {
             ".txt", ".md", ".py", ".js", ".ts", ".html", ".css",
             ".json", ".xml", ".yaml", ".yml", ".csv", ".log",

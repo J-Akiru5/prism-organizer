@@ -94,6 +94,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "cooldown_seconds": 10,
         "min_file_age_seconds": 5,
     },
+    "show_exit_banner": True,
 }
 
 
@@ -260,6 +261,11 @@ class Config:
     def ai_config(self) -> Dict[str, Any]:
         """AI integration settings (provider, model, features)."""
         return self._data.get("ai", {})
+
+    @property
+    def show_exit_banner(self) -> bool:
+        """Whether to display the promotional exit banner after sorting."""
+        return self._data.get("show_exit_banner", True)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a top-level config value by key.

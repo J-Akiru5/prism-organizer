@@ -282,8 +282,22 @@ def build_help(topic: str = "") -> str:
         title, fn = sections[topic]
         return f"[bold cyan]══ {title} ══[/bold cyan]\n" + fn()
 
+    # Get dynamic version
+    def get_version() -> str:
+        try:
+            from prism_organizer import __version__
+            return __version__
+        except Exception:
+            try:
+                import importlib.metadata
+                return importlib.metadata.version("prism-organizer")
+            except Exception:
+                return "1.2.15"
+
+    version = get_version()
+
     # Full help
-    lines = ["", "[bold magenta]══ Prism Organizer v1.2.14 — Help ══[/bold magenta]", ""]
+    lines = ["", f"[bold magenta]══ Prism Organizer v{version} — Help ══[/bold magenta]", ""]
     lines.append(get_quick_start())
     lines.append(get_command_reference())
     lines.append(get_tui_guide())

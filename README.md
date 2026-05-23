@@ -235,6 +235,17 @@ Config stored at `~/.prism-organizer/config.yaml`. Auto-created on first run.
 - **☁️ Cloud drive protection** — Auto-skips synced folders
 - **🤖 AI always suggests, never acts** — Classifications go through preview/confirm
 
+### 🛡️ Privacy & Data Handling
+
+Prism Organizer is designed to be local-first, respecting your privacy and secure data processing:
+- **Zero Remote Telemetry**: No usage stats, error reports, or telemetry leave your machine.
+- **Local Operational Logs**: Full undo-history transaction logs contain absolute file paths, stored entirely locally under `~/.prism-organizer/logs/`.
+- **AI Privacy Guardrails**:
+  - **Local AI Providers** (Ollama, LM Studio) run fully offline on your own hardware.
+  - **Cloud AI Providers** (OpenAI) only receive filenames, extensions, and optionally short text previews (first 500 characters). Full binary/media files are never read or transmitted.
+  - **AI Preview Opt-Out**: Set `disable_previews: true` in your config to prevent reading/sending file contents entirely, or pass the `--no-ai` flag to disable all AI-powered suggestions.
+- For complete policy and data handling details, see [SECURITY.md](SECURITY.md).
+
 ## Troubleshooting
 
 ### npm install fails / Python not found

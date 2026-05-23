@@ -55,6 +55,19 @@ logs/
 # Node / NPM
 node_modules/
 package-lock.json
-build_log.txt
+
+# PyInstaller
 prism-organizer.spec
-__pycache__/
+
+# ── Debug / log artifacts ──────────────────────────────────────────
+# These are local build and test outputs that must never enter the repo.
+build_log.txt
+scan_result.txt
+stdout_tui.txt
+stderr_tui.txt
+*_tui.txt
+*.log
+
+# ── Developer-only tools (quarantined) ─────────────────────────────
+# Contains scripts with hardcoded local paths — not shipped in releases.
+.dev-tools/
