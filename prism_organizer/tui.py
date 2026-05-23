@@ -1110,6 +1110,56 @@ def run_tui(config: Optional[Config] = None) -> None:
                 "info",
             )
 
+    # Check for updates in the background on startup
+    import threading
+    from prism_organizer.updater import check_for_updates, get_install_method
+
+    new_version = [None]
+    def run_update_check():
+        try:
+            ver = check_for_updates()
+            if ver:
+                new_version[0] = ver
+        except Exception:
+            pass
+
+    t = threading.Thread(target=run_update_check, daemon=True)
+    t.start()
+    t.join(timeout=1.0)
+
+    new_ver = new_version[0]
+    if new_ver:
+        method = get_install_method()
+        if method == "npm":
+            display_header("Update Available")
+            display_warning(f"A new version of Prism Organizer is available: v{new_ver}")
+            display_info("Run the following command in your terminal to update:")
+            display_info("  npm update -g prism-organizer")
+            try:
+                input("\n  Press Enter to continue to TUI...")
+            except (KeyboardInterrupt, EOFError):
+                pass
+        elif method == "standalone":
+            display_header("Update Available")
+            display_warning(f"A new version of Prism Organizer is available: v{new_ver}")
+            if interactive_confirm("Would you like to download and install this update automatically?"):
+                from prism_organizer.updater import download_and_apply_update
+                download_and_apply_update(new_ver)
+            else:
+                display_info("Update skipped.")
+                try:
+                    input("\n  Press Enter to continue to TUI...")
+                except (KeyboardInterrupt, EOFError):
+                    pass
+        else:
+            display_header("Update Available")
+            display_warning(f"A new version of Prism Organizer is available: v{new_ver}")
+            display_info(f"Run: pip install --upgrade prism-organizer=={new_ver}")
+            try:
+                input("\n  Press Enter to continue to TUI...")
+            except (KeyboardInterrupt, EOFError):
+                pass
+
     console = get_console()
     add_log("Prism Organizer ready.  Select an action.", "info")
 

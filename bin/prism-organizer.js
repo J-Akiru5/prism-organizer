@@ -294,7 +294,10 @@ async function main() {
   const binary = await downloadBinary();
 
   if (binary) {
-    const child = spawn(binary, args, { stdio: "inherit" });
+    const child = spawn(binary, args, {
+      stdio: "inherit",
+      env: { ...process.env, PRISM_INSTALL_METHOD: "npm" }
+    });
     child.on("close", (code) => process.exit(code));
     child.on("error", () => {
       // Binary corrupt — delete and retry
@@ -317,6 +320,7 @@ async function main() {
 
   const child = spawn(PYTHON_CMD, ["-u", "-m", PACKAGE_MODULE, ...args], {
     stdio: "inherit",
+    env: { ...process.env, PRISM_INSTALL_METHOD: "npm" }
   });
   child.on("close", (code) => process.exit(code));
   child.on("error", (err) => {

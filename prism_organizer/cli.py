@@ -724,6 +724,32 @@ def cmd_schedule(args: argparse.Namespace, config: Config) -> None:
         print_info("Use: prism-organizer schedule [add|list|remove]")
 
 
+_update_thread = None
+_new_version_info = []
+
+
+def _print_update_notice() -> None:
+    """Check the update thread and print notification if a new version is available."""
+    global _update_thread, _new_version_info
+    if _update_thread:
+        _update_thread.join(timeout=0.1)
+        if _new_version_info:
+            new_ver = _new_version_info[0]
+            from prism_organizer.updater import get_install_method
+            method = get_install_method()
+            print()
+            if method == "npm":
+                print_warning(f"A new version of Prism Organizer is available: v{new_ver}")
+                print_info("Run 'npm update -g prism-organizer' to update.")
+            elif method == "standalone":
+                print_warning(f"A new version of Prism Organizer is available: v{new_ver}")
+                print_info("Download the latest release from: https://github.com/J-Akiru5/prism-organizer/releases")
+            else:
+                print_warning(f"A new version of Prism Organizer is available: v{new_ver}")
+                print_info(f"Run 'pip install prism-organizer=={new_ver}' to update.")
+            print()
+
+
 def main() -> None:
     """Main entry point for the CLI.
 
@@ -734,6 +760,23 @@ def main() -> None:
     """
     colorama_init(autoreset=True)
     init_display()
+
+    # Start update checker in a background thread
+    global _update_thread, _new_version_info
+    import threading
+    from prism_organizer.updater import check_for_updates
+
+    _new_version_info = []
+    def run_update_check():
+        try:
+            ver = check_for_updates()
+            if ver:
+                _new_version_info.append(ver)
+        except Exception:
+            pass
+
+    _update_thread = threading.Thread(target=run_update_check, daemon=True)
+    _update_thread.start()
 
     parser = create_parser()
     args = parser.parse_args()
@@ -760,6 +803,7 @@ def main() -> None:
             if args.verbose:
                 import traceback
                 traceback.print_exc()
+        _print_update_notice()
         display_exit_banner(config=config)
         sys.exit(0)
 
@@ -792,6 +836,7 @@ def main() -> None:
     if handler:
         try:
             handler(args, config)
+            _print_update_notice()
             display_exit_banner(config=config)
         except KeyboardInterrupt:
             print("\n")
