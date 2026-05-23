@@ -84,31 +84,32 @@ jobs:
           }
 
       - name: Check if version already published to NPM
-        if: startsWith(github.ref, 'refs/tags/v')
         id: check-npm
         shell: bash
         run: |
           CURRENT_VER=$(node -p "require('./package.json').version")
           PUBLISHED=$(npm view prism-organizer@$CURRENT_VER version 2>/dev/null || echo "not-found")
           echo "current=$CURRENT_VER" >> $GITHUB_OUTPUT
+          echo "tag_name=v$CURRENT_VER" >> $GITHUB_OUTPUT
           if [ "$PUBLISHED" != "not-found" ]; then
             echo "already=yes" >> $GITHUB_OUTPUT
-            echo "Version $CURRENT_VER is already published on NPM. Skipping publish."
+            echo "Version $CURRENT_VER is already published on NPM. Skipping publish/release."
           else
             echo "already=no" >> $GITHUB_OUTPUT
           fi
 
       - name: Publish to NPM
-        if: startsWith(github.ref, 'refs/tags/v') && steps.check-npm.outputs.already != 'yes'
+        if: steps.check-npm.outputs.already != 'yes'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: steps.check-npm.outputs.already != 'yes'
         uses: softprops/action-gh-release@v2
         with:
-          name: ${{ github.ref_name }}
+          tag_name: ${{ steps.check-npm.outputs.tag_name }}
+          name: ${{ steps.check-npm.outputs.tag_name }}
           files: dist/prism-organizer.exe
           generate_release_notes: true
         env:
