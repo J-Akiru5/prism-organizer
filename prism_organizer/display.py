@@ -6,6 +6,7 @@ cyan primary, purple accent, green/yellow/red status.
 """
 
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -84,6 +85,9 @@ def get_console():
                 def input(self, *a, **kw): return input(*a)
                 def clear(self): pass
                 def rule(self, *a, **kw): pass
+                @contextmanager
+                def screen(self, *a, **kw):
+                    yield self
             _console = _DummyConsole()
     return _console
 

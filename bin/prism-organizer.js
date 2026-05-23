@@ -24,14 +24,15 @@ const BINARY_PATH = path.join(CACHE_DIR, BINARY_NAME);
 const VERSION_PATH = path.join(CACHE_DIR, ".binary-version");
 const WRAPPER_VERSION = "1.2.15";
 const DOWNLOAD_URL =
-  "https://github.com/J-Akiru5/prism-organizer/releases/download/v1.2.14/prism-organizer.exe";
+  "https://github.com/J-Akiru5/prism-organizer/releases/download/v1.2.15/prism-organizer.exe";
 const PIP_URL =
-  "prism-organizer==1.2.14";
+  "prism-organizer==1.2.15";
 const PYTHON_CMD = "python";
 const PACKAGE_MODULE = "prism_organizer";
 
 const CHECKSUM_REGISTRY = {
-  "1.2.14": "644da877c8e96bf287c71d604e38e137b02db7c271cfcfcb3fb8caec16db04df" // Validated build checksum
+  "1.2.14": "644da877c8e96bf287c71d604e38e137b02db7c271cfcfcb3fb8caec16db04df",
+  "1.2.15": "48fdd7960e3c516c84d668252148e425aa1a32017629d2c54af33cc03bd69f0d"
 };
 
 function getFileSha256(filePath) {

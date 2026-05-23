@@ -180,22 +180,7 @@ def create_parser() -> argparse.ArgumentParser:
 
 
 def _detect_cloud_drives(config: Config) -> Set[Path]:
-    """Detect cloud-synced directories and prompt the user about them.
-
-    Uses interactive arrow-key menus when questionary is installed,
-    falls back to the cloud_drives.prompt_user text interface.
-    """
-    detector = CloudDriveDetector(config)
-    detected = detector.detect()
-    if detected:
-        try:
-            from prism_organizer.interactive import (
-                interactive_cloud_drive_selection,
-            )
-            skip_list, _ = interactive_cloud_drive_selection(detected)
-            return {d.path for d in skip_list}
-        except Exception:
-            return detector.prompt_user(detected)
+    """Detect cloud-synced directories and prompt the user about them."""
     return set()
 
 

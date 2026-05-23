@@ -250,10 +250,10 @@ class TaskScheduler:
 
         exe = sys.executable
         
-        # Escape quotes inside the /TR command string to prevent argument-splitting vulnerabilities.
-        exe_escaped = str(exe).replace('"', '\\"')
-        resolved_escaped = str(resolved).replace('"', '\\"')
-        task_run = f'\\"{exe_escaped}\\" -m prism_organizer {command} \\"{resolved_escaped}\\" --confirm'
+        # Build the /TR command string.  subprocess.run(list) handles
+        # Windows command-line quoting automatically for each argument,
+        # so just use standard double-quoted paths.
+        task_run = f'"{exe}" -m prism_organizer {command} "{resolved}" --confirm'
 
         schedule_map = {
             "daily": "DAILY",

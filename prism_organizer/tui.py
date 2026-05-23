@@ -51,20 +51,20 @@ from prism_organizer.interactive import (
 # ── Constants ─────────────────────────────────────────────────────────
 
 MENU_ITEMS = [
-    ("1", "scan",    "Scan directory",       "\U0001f50d"),
-    ("2", "sort",    "Sort files",           "\U0001f4c1"),
-    ("3", "dupes",   "Find duplicates",      "\U0001f50e"),
-    ("4", "clean",   "Clean junk files",     "\U0001f9f9"),
-    ("5", "rules",   "Apply custom rules",   "\U0001f4dd"),
-    ("6", "ai",      "AI classify",          "\U0001f916"),
-    ("7", "watch",   "Watch mode",           "\U0001f440"),
-    ("8", "undo",    "Undo last operation",  "\u21a9\ufe0f"),
-    ("9", "ai-setup", "Setup AI features",    "\u2699\ufe0f"),
+    ("1", "scan",    "Scan directory",       "[*]"),
+    ("2", "sort",    "Sort files",           "[^]"),
+    ("3", "dupes",   "Find duplicates",      "[==]"),
+    ("4", "clean",   "Clean junk files",     "[~]"),
+    ("5", "rules",   "Apply custom rules",   "[#]"),
+    ("6", "ai",      "AI classify",          "[AI]"),
+    ("7", "watch",   "Watch mode",           "[@]"),
+    ("8", "undo",    "Undo last operation",  "[<-]"),
+    ("9", "ai-setup", "Setup AI features",    "[cfg]"),
 ]
 SECONDARY_ITEMS = [
-    ("S", "schedule", "Schedule tasks", "\U0001f4c5"),
-    ("H", "help",     "Help",           "\u2753"),
-    ("Q", "quit",     "Quit",           "\U0001f6aa"),
+    ("S", "schedule", "Schedule tasks", "[cal]"),
+    ("H", "help",     "Help",           "[?]"),
+    ("Q", "quit",     "Quit",           "[x]"),
 ]
 
 LOG_LINES: List[str] = []
@@ -80,7 +80,7 @@ def add_log(msg: str, level: str = "info") -> None:
         "warning": THEME["warning"],
         "error": THEME["error"],
     }.get(level, THEME["muted"])
-    icon = {"info": "\u2139", "success": "\u2713", "warning": "\u26a0", "error": "\u2717"}.get(level, "\u2139")
+    icon = {"info": "[INFO]", "success": "[OK]", "warning": "[WARN]", "error": "[ERR]"}.get(level, "[INFO]")
     LOG_LINES.insert(0, f"[{color}][{ts}] {icon} {msg}[/{color}]")
     if len(LOG_LINES) > MAX_LOG_LINES:
         LOG_LINES.pop()
@@ -92,7 +92,7 @@ def add_log(msg: str, level: str = "info") -> None:
 def _make_banner() -> Panel:
     """Build the top banner panel."""
     title = Text(
-        f" \U0001f52e  Prism Organizer v{__version__}",
+        f" [*] Prism Organizer v{__version__}",
         style=f"bold {THEME['accent']}",
     )
     subtitle = Text(
@@ -123,7 +123,7 @@ def _make_menu() -> Panel:
     lines.append(f"  {sec}")
     return Panel(
         "\n".join(lines),
-        title=f"[bold {THEME['primary']}]\U0001f4cb  Main Menu",
+        title=f"[bold {THEME['primary']}]Menu",
         border_style=THEME["primary"],
         padding=(1, 2),
     )
@@ -137,7 +137,7 @@ def _make_log_panel() -> Panel:
         content = os.linesep.join(LOG_LINES[:MAX_LOG_LINES])
     return Panel(
         content,
-        title=f"[bold {THEME['primary']}]\U0001f4dc  Activity Log",
+        title=f"[bold {THEME['primary']}]Activity Log",
         border_style=THEME["border"],
         padding=(1, 1),
     )
@@ -162,7 +162,7 @@ def _make_stats_panel(config: Config) -> Panel:
         lines.append(f"  [{THEME['muted']}]No defaults set.{os.linesep}")
     return Panel(
         os.linesep.join(lines),
-        title=f"[bold {THEME['primary']}]\U0001f4ca  Quick Stats",
+        title=f"[bold {THEME['primary']}]Quick Stats",
         border_style=THEME["border"],
         padding=(1, 2),
     )
@@ -214,7 +214,7 @@ def _make_help_panel() -> Panel:
     ]
     return Panel(
         "\n".join(lines),
-        title=f"[bold {THEME['accent']}]\u2753  Help & Documentation",
+        title=f"[bold {THEME['accent']}]Help & Documentation",
         border_style=THEME["primary"],
         padding=(1, 2),
     )
@@ -312,7 +312,7 @@ def _get_path(config: Config) -> Optional[Path]:
     sel = interactive_select(
         "Select a directory to work on:",
         choices=choices_str,
-        format_fn=lambda x: f"\U0001f4c1  {x}",
+        format_fn=lambda x: f"  {x}",
     )
     if sel == "Custom path...":
         custom = interactive_text(
@@ -363,7 +363,7 @@ def _action_sort(config: Config) -> bool:
         "Sort method:",
         choices=["type", "date"],
         default="type",
-        format_fn=lambda x: f"{'📁' if x == 'type' else '📅'}  Sort by {x}",
+        format_fn=lambda x: f"{'[dir]' if x == 'type' else '[cal]'}  Sort by {x}",
     )
     if not sort_by:
         return False
@@ -608,7 +608,7 @@ def _action_watch(config: Config) -> bool:
         "Action on new files:",
         choices=["sort", "clean", "all"],
         default="sort",
-        format_fn=lambda x: f"{'📁' if x == 'sort' else '🧹' if x == 'clean' else '📁+🧹'}  {x}",
+        format_fn=lambda x: f"{'[dir]' if x == 'sort' else '[clean]' if x == 'clean' else '[sort+clean]'}  {x}",
     )
     if not action_sel:
         return False
@@ -651,7 +651,7 @@ def _action_undo(config: Config) -> bool:
         ts = op.get("timestamp", "unknown")
         target = op.get("target_dir", "unknown")
         count = len(op.get("operations", []))
-        print(f"  {i}. [{ts[:19]}] {cmd} — {target} ({count} ops)")
+        print_info(f"  {i}. [{ts[:19]}] {cmd} - {target} ({count} ops)")
 
     if interactive_confirm("Undo the most recent operation?"):
         manager.undo_last()
@@ -670,9 +670,9 @@ def _action_schedule(config: Config) -> bool:
         "Schedule:",
         choices=["add", "list", "remove"],
         format_fn=lambda x: {
-            "add": "\U0001f4c5  Add new task",
-            "list": "\U0001f4cb  List tasks",
-            "remove": "\U0001f5d1  Remove task",
+            "add": "[+] Add new task",
+            "list": "[*] List tasks",
+            "remove": "[-] Remove task",
         }.get(x, x),
     )
     if not action:
@@ -684,8 +684,8 @@ def _action_schedule(config: Config) -> bool:
             return False
         display_header("Scheduled Tasks")
         for t in tasks:
-            print(f"  {t['name']}")
-            print(f"    Next: {t['next_run']}  |  Status: {t['status']}")
+            print_info(f"  {t['name']}")
+            print_info(f"    Next: {t['next_run']}  |  Status: {t['status']}")
         add_log(f"Listed {len(tasks)} scheduled tasks", "info")
         return True
 
@@ -774,6 +774,22 @@ def _handle_sigwinch(signum, frame):
 
 if hasattr(signal, "SIGWINCH"):
     signal.signal(signal.SIGWINCH, _handle_sigwinch)
+
+
+def _tui_print(console, *a, **kw):
+    """Safe console.print() with Rich crash fallback for the TUI."""
+    try:
+        console.print(*a, **kw)
+    except Exception:
+        pass
+
+
+def _tui_clear(console):
+    """Safe console.clear() with Rich crash fallback for the TUI."""
+    try:
+        console.clear()
+    except Exception:
+        pass
 
 
 def is_interactive_tui() -> bool:
@@ -870,10 +886,10 @@ def get_user_choice(console, config) -> str:
     def draw_full_screen() -> None:
         """Clear the viewport and print the layout + current prompt."""
         # Clean both screen and scrollback using the ANSI escape codes to prevent duplicates
-        console.clear()
-        console.print("\033[3J", end="")
-        console.print(_build_layout(config))
-        console.print(prompt_text + f"[white]{current_input}[/white]", end="", highlight=False)
+        _tui_clear(console)
+        _tui_print(console, "\033[3J", end="")
+        _tui_print(console, _build_layout(config))
+        _tui_print(console, prompt_text + f"[white]{current_input}[/white]", end="", highlight=False)
 
     draw_full_screen()
 
@@ -900,13 +916,13 @@ def get_user_choice(console, config) -> str:
             key = read_key_nonblocking()
         except KeyboardInterrupt:
             # Reprint standard newline before exit/handling
-            console.print()
+            _tui_print(console)
             raise KeyboardInterrupt
 
         if key is not None:
             # Handle Enter/Return keys
             if key in ('\r', '\n'):
-                console.print()
+                _tui_print(console)
                 return current_input.strip().lower()
 
             # Handle Backspace keys
@@ -944,10 +960,10 @@ def wait_for_enter(console, panel_builder_fn) -> None:
     prompt_text = "\n  [dim]Press Enter to return to menu...[/dim]"
 
     def draw_full_screen() -> None:
-        console.clear()
-        console.print("\033[3J", end="")
-        console.print(panel_builder_fn())
-        console.print(prompt_text, end="")
+        _tui_clear(console)
+        _tui_print(console, "\033[3J", end="")
+        _tui_print(console, panel_builder_fn())
+        _tui_print(console, prompt_text, end="")
 
     draw_full_screen()
 
@@ -972,11 +988,11 @@ def wait_for_enter(console, panel_builder_fn) -> None:
         try:
             key = read_key_nonblocking()
         except KeyboardInterrupt:
-            console.print()
+            _tui_print(console)
             raise KeyboardInterrupt
 
         if key in ('\r', '\n'):
-            console.print()
+            _tui_print(console)
             return
 
         time.sleep(0.05)
@@ -992,17 +1008,17 @@ def simple_wait_for_enter(console) -> None:
             raise KeyboardInterrupt
 
     prompt_text = "\n  [dim]Press Enter to return to menu...[/dim]"
-    console.print(prompt_text, end="")
+    _tui_print(console, prompt_text, end="")
 
     while True:
         try:
             key = read_key_nonblocking()
         except KeyboardInterrupt:
-            console.print()
+            _tui_print(console)
             raise KeyboardInterrupt
 
         if key in ('\r', '\n'):
-            console.print()
+            _tui_print(console)
             return
 
         time.sleep(0.05)
@@ -1033,15 +1049,15 @@ def run_tui(config: Optional[Config] = None) -> None:
 
     def clear() -> None:
         """Clear both the visible screen viewport and the scrollback buffer to prevent duplicates."""
-        console.clear()
-        console.print("\033[3J", end="")
+        _tui_clear(console)
+        _tui_print(console, "\033[3J", end="")
 
     with console.screen():
         while True:
             try:
                 key = get_user_choice(console, config)
             except (KeyboardInterrupt, EOFError):
-                console.print()
+                _tui_print(console)
                 add_log("Goodbye!", "info")
                 break
 
