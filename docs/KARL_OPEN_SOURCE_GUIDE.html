@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prism Organizer - Open Source Guide for Karl</title>
+  <style>
+    :root {
+      --bg: #f7f7f4;
+      --card: #ffffff;
+      --ink: #1a1a1a;
+      --muted: #5b5b5b;
+      --accent: #0d6b68;
+      --border: #d9d9d9;
+      --warn: #a15f00;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.6;
+    }
+    header {
+      background: linear-gradient(120deg, #0d6b68 0%, #0c4d4b 100%);
+      color: #fff;
+      padding: 28px 20px;
+    }
+    header h1 {
+      margin: 0 0 6px 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    header p { margin: 0; opacity: 0.9; }
+    main {
+      max-width: 920px;
+      margin: 20px auto 48px;
+      padding: 0 16px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+    }
+    h2 {
+      margin: 0 0 8px 0;
+      font-size: 18px;
+      color: var(--accent);
+    }
+    h3 {
+      margin: 14px 0 6px 0;
+      font-size: 15px;
+    }
+    ul { padding-left: 18px; margin: 8px 0; }
+    li { margin: 4px 0; }
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    .tag {
+      display: inline-block;
+      background: #e8f3f2;
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-right: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f1f1ef; }
+    .checklist input { margin-right: 6px; }
+    .warn { color: var(--warn); font-weight: 600; }
+    .links a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .links a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Prism Organizer - Open Source Guide for Karl</h1>
+    <p>Mini project plan and checklist to ship the public release by May 28, 2026.</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>What Prism Organizer is for</h2>
+      <p>
+        Prism Organizer is a Windows-focused CLI and TUI tool that scans, analyzes,
+        and organizes files. It helps users clean up folders by sorting files into
+        categories or date buckets, finding duplicates, and cleaning junk. It is
+        designed with safety first: previews, backups before delete, and undo logs.
+      </p>
+      <div class="grid">
+        <div>
+          <h3>Core user outcomes</h3>
+          <ul>
+            <li>Understand a folder quickly (scan report).</li>
+            <li>Organize files by type or date safely.</li>
+            <li>Remove junk and duplicates with review.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Key safety features</h3>
+          <ul>
+            <li>Dry-run previews before changes.</li>
+            <li>Backups for deletes (undo support).</li>
+            <li>Cloud-drive detection (needs wiring).</li>
+          </ul>
+        </div>
+      </div>
+      <p class="meta">Audience: end users who want safer file cleanup and organization on Windows.</p>
+    </section>
+
+    <section class="card">
+      <h2>Scope and priorities</h2>
+      <p>
+        Target: open source readiness with clean repo, safety behavior matching docs,
+        and basic governance files.
+      </p>
+      <div class="grid">
+        <div>
+          <h3>Must ship</h3>
+          <ul>
+            <li>Cloud-drive detection wired into CLI and TUI.</li>
+            <li>Remove local artifacts and dev-only scripts.</li>
+            <li>Governance docs (contrib, code of conduct, security).</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Should ship</h3>
+          <ul>
+            <li>Version consistency across Python and npm.</li>
+            <li>Checksum enforcement in the npm wrapper.</li>
+            <li>CI for tests on Windows.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Mini project timeline (5 working days)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>Goal</th>
+            <th>Deliverables</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Day 1</td>
+            <td>Repo cleanup</td>
+            <td>Remove local artifacts, quarantine dev-only scripts</td>
+          </tr>
+          <tr>
+            <td>Day 2</td>
+            <td>Safety wiring</td>
+            <td>Cloud-drive detection in CLI and TUI</td>
+          </tr>
+          <tr>
+            <td>Day 3</td>
+            <td>Governance</td>
+            <td>CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, CHANGELOG</td>
+          </tr>
+          <tr>
+            <td>Day 4</td>
+            <td>Packaging and CI</td>
+            <td>Version sync, checksum enforcement, CI workflow</td>
+          </tr>
+          <tr>
+            <td>Day 5</td>
+            <td>Privacy polish</td>
+            <td>Opt-out for exit banner, AI preview toggle, doc updates</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Mini project management checklist</h2>
+      <div class="checklist">
+        <h3>Cleanup and safety</h3>
+        <label><input type="checkbox"> Remove local artifacts (build_log.txt, scan_result.txt, stdout_tui.txt, stderr_tui.txt)</label><br>
+        <label><input type="checkbox"> Move or remove dev-only scripts with hard-coded paths</label><br>
+        <label><input type="checkbox"> Wire cloud-drive detection into CLI flows</label><br>
+        <label><input type="checkbox"> Wire cloud-drive detection into TUI flows</label>
+
+        <h3>Docs and governance</h3>
+        <label><input type="checkbox"> Add CONTRIBUTING.md</label><br>
+        <label><input type="checkbox"> Add CODE_OF_CONDUCT.md</label><br>
+        <label><input type="checkbox"> Add SECURITY.md</label><br>
+        <label><input type="checkbox"> Add CHANGELOG.md</label>
+
+        <h3>Packaging and quality</h3>
+        <label><input type="checkbox"> Single source of truth for version</label><br>
+        <label><input type="checkbox"> Enforce checksum verification for binary downloads</label><br>
+        <label><input type="checkbox"> Add Windows CI for tests</label>
+
+        <h3>Privacy and UX</h3>
+        <label><input type="checkbox"> Add opt-out for exit banner</label><br>
+        <label><input type="checkbox"> Add AI content preview toggle or consent step</label><br>
+        <label><input type="checkbox"> Document that logs store full file paths</label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Definition of done</h2>
+      <ul>
+        <li>No local or user-specific artifacts remain in the repo.</li>
+        <li>Cloud-drive safety behavior matches documentation.</li>
+        <li>Open source governance docs are present.</li>
+        <li>Version and checksum policies are consistent and enforced.</li>
+        <li>CI runs on Windows with tests passing.</li>
+      </ul>
+    </section>
+
+    <section class="card links">
+      <h2>Reference docs</h2>
+      <ul>
+        <li><a href="AUDIT_REPORT.md">Open Source Audit Report</a></li>
+        <li><a href="DEV_OPEN_SOURCE_GUIDE.md">Developer Open Source Guide</a></li>
+      </ul>
+      <p class="meta">Note: relative links assume this HTML lives in the docs/ folder.</p>
+    </section>
+
+    <section class="card">
+      <h2>Risks to watch</h2>
+      <ul>
+        <li class="warn">Do not publish with local paths or user data in the repo.</li>
+        <li class="warn">Do not claim cloud-drive safety until it is wired.</li>
+        <li>AI features should have clear privacy controls and consent.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
