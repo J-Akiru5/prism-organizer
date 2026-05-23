@@ -41,47 +41,7 @@ jobs:
           pyinstaller --onefile --name prism-organizer --hidden-import rich --hidden-import questionary --hidden-import colorama --hidden-import yaml --hidden-import tqdm --add-data "prism_organizer;prism_organizer" prism_organizer/__main__.py
 
       - name: Inject checksum into npm wrapper
-        shell: node
-        run: |
-          const fs = require('fs');
-          const crypto = require('crypto');
-          const exePath = 'dist/prism-organizer.exe';
-          const jsPath = 'bin/prism-organizer.js';
-          
-          if (!fs.existsSync(exePath)) {
-            console.error('Error: ' + exePath + ' not found.');
-            process.exit(1);
-          }
-          
-          const hash = crypto.createHash('sha256').update(fs.readFileSync(exePath)).digest('hex');
-          console.log('Built exe hash:', hash);
-          
-          let content = fs.readFileSync(jsPath, 'utf8');
-          const version = require('./package.json').version;
-          
-          const registryRegex = /const CHECKSUM_REGISTRY = \{([^}]+)\};/;
-          const match = content.match(registryRegex);
-          if (match) {
-            const currentRegistry = match[1];
-            const entryRegex = new RegExp(`"${version}":\\s*"[^"]+"`);
-            let newRegistry;
-            if (entryRegex.test(currentRegistry)) {
-              newRegistry = currentRegistry.replace(entryRegex, `"${version}": "${hash}"`);
-            } else {
-              newRegistry = currentRegistry.trim();
-              if (newRegistry.endsWith(',')) {
-                newRegistry += `\n  "${version}": "${hash}"`;
-              } else {
-                newRegistry += `,\n  "${version}": "${hash}"`;
-              }
-            }
-            content = content.replace(registryRegex, `const CHECKSUM_REGISTRY = {\n  ${newRegistry.trim()}\n};`);
-            fs.writeFileSync(jsPath, content, 'utf8');
-            console.log('Successfully injected checksum for v' + version + ': ' + hash);
-          } else {
-            console.error('Could not find CHECKSUM_REGISTRY in ' + jsPath);
-            process.exit(1);
-          }
+        run: node scripts/inject-checksum.js
 
       - name: Check if version already published to NPM
         id: check-npm
