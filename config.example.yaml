@@ -75,6 +75,9 @@ duplicates:
 # Date sorting format
 date_format: "%Y/%B"
 
+# Display a promotional exit banner after organizing
+show_exit_banner: true
+
 # AI-powered classification and renaming (requires: pip install openai)
 ai:
   enabled: false
@@ -86,6 +89,8 @@ ai:
     classify_unknown: true   # Suggest categories for unknown file extensions
     smart_rename: false      # Generate descriptive filenames for auto-named files
   min_confidence: 0.7
+  # Privacy: set to true to disable reading/sending file text previews to the AI
+  disable_previews: false
 
 # Real-time directory watcher
 watcher:

@@ -95,6 +95,25 @@ def create_parser() -> argparse.ArgumentParser:
         "--no-interactive", action="store_true",
         help="Disable arrow-key prompts, use plain text input",
     )
+    parser.add_argument(
+        "--no-ai", action="store_true",
+        help="Disable all AI-powered features entirely",
+    )
+
+    # Cloud-drive control flags
+    cloud_group = parser.add_mutually_exclusive_group()
+    cloud_group.add_argument(
+        "--skip-cloud-drives", action="store_true", default=True,
+        help="Detect cloud-synced folders and prompt to skip them (default)",
+    )
+    cloud_group.add_argument(
+        "--include-cloud-drives", action="store_true",
+        help="Include cloud-synced folders (treat as normal directories)",
+    )
+    cloud_group.add_argument(
+        "--no-cloud-detect", action="store_true",
+        help="Disable cloud-drive detection entirely (fastest)",
+    )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -179,9 +198,39 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _detect_cloud_drives(config: Config) -> Set[Path]:
-    """Detect cloud-synced directories and prompt the user about them."""
-    return set()
+def _detect_cloud_drives(args: argparse.Namespace, config: Config) -> Set[Path]:
+    """Detect cloud-synced directories and prompt the user about them.
+
+    Behaviour is controlled by three mutually exclusive CLI flags:
+
+    * ``--no-cloud-detect`` — skip detection entirely, return empty set.
+    * ``--include-cloud-drives`` — run detection but include all drives
+      (nothing skipped).
+    * ``--skip-cloud-drives`` (default) — run detection and prompt the
+      user interactively.  Drives the user chooses to skip are returned.
+
+    Args:
+        args: Parsed command-line arguments.
+        config: Application configuration instance.
+
+    Returns:
+        Set of directory paths the user chose to skip.
+    """
+    # Fast path: detection disabled
+    if getattr(args, "no_cloud_detect", False):
+        return set()
+
+    # Include all: detection runs but nothing is skipped
+    if getattr(args, "include_cloud_drives", False):
+        return set()
+
+    # Default: detect and prompt
+    detector = CloudDriveDetector(config)
+    detected = detector.detect()
+    if not detected:
+        return set()
+
+    return detector.prompt_user(detected)
 
 
 def cmd_scan(args: argparse.Namespace, config: Config) -> None:
@@ -195,7 +244,7 @@ def cmd_scan(args: argparse.Namespace, config: Config) -> None:
         args: Parsed command-line arguments containing path and options.
         config: Application configuration instance.
     """
-    skip_dirs = _detect_cloud_drives(config)
+    skip_dirs = _detect_cloud_drives(args, config)
 
     scanner = Scanner(config)
     result = scanner.scan(
@@ -219,7 +268,7 @@ def cmd_sort(args: argparse.Namespace, config: Config) -> None:
               and execution flags.
         config: Application configuration instance.
     """
-    skip_dirs = _detect_cloud_drives(config)
+    skip_dirs = _detect_cloud_drives(args, config)
 
     scanner = Scanner(config)
     scan_result = scanner.scan(
@@ -259,7 +308,7 @@ def cmd_dupes(args: argparse.Namespace, config: Config) -> None:
         args: Parsed command-line arguments containing path and options.
         config: Application configuration instance.
     """
-    skip_dirs = _detect_cloud_drives(config)
+    skip_dirs = _detect_cloud_drives(args, config)
 
     scanner = Scanner(config)
     scan_result = scanner.scan(
@@ -300,7 +349,7 @@ def cmd_clean(args: argparse.Namespace, config: Config) -> None:
         args: Parsed command-line arguments containing path and options.
         config: Application configuration instance.
     """
-    skip_dirs = _detect_cloud_drives(config)
+    skip_dirs = _detect_cloud_drives(args, config)
 
     scanner = Scanner(config)
     scan_result = scanner.scan(
@@ -342,7 +391,7 @@ def cmd_rules(args: argparse.Namespace, config: Config) -> None:
         print_info(f"Add rules to your config file: {config._config_path}")
         return
 
-    skip_dirs = _detect_cloud_drives(config)
+    skip_dirs = _detect_cloud_drives(args, config)
 
     scanner = Scanner(config)
     scan_result = scanner.scan(
@@ -442,7 +491,7 @@ def cmd_ai_classify(args: argparse.Namespace, config: Config) -> None:
         )
         return
 
-    skip_dirs = _detect_cloud_drives(config)
+    skip_dirs = _detect_cloud_drives(args, config)
 
     scanner = Scanner(config)
     scan_result = scanner.scan(
@@ -692,6 +741,8 @@ def main() -> None:
     # Boot: load config (protected — friendly error on failure)
     try:
         config = Config(config_path=args.config)
+        if args.no_ai:
+            config.ai_config["enabled"] = False
     except Exception as e:
         print_error(f"Startup error: {e}")
         sys.exit(1)
@@ -709,7 +760,7 @@ def main() -> None:
             if args.verbose:
                 import traceback
                 traceback.print_exc()
-        display_exit_banner()
+        display_exit_banner(config=config)
         sys.exit(0)
 
     # Show splash for TUI mode
@@ -741,7 +792,7 @@ def main() -> None:
     if handler:
         try:
             handler(args, config)
-            display_exit_banner()
+            display_exit_banner(config=config)
         except KeyboardInterrupt:
             print("\n")
             print_info("Operation cancelled by user.")

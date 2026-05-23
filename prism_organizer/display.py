@@ -154,8 +154,20 @@ def display_splash() -> None:
     _safe_print(banner)
 
 
-def display_exit_banner() -> None:
+def display_exit_banner(config: Optional[Any] = None) -> None:
     """Print a subtle exit message with survey link after organizing."""
+    import os
+    if os.environ.get("PRISM_NO_BANNER") == "1":
+        return
+    if config is not None:
+        show = True
+        if hasattr(config, "get"):
+            show = config.get("show_exit_banner", True)
+        elif hasattr(config, "show_exit_banner"):
+            show = config.show_exit_banner
+        if not show:
+            return
+
     print()
     print("  ------------------------------------------------------------")
     print("  Sorted by Prism Organizer.")

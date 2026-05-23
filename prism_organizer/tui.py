@@ -12,7 +12,7 @@ import os
 import sys
 import signal
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from rich.console import Group
 from rich.panel import Panel
@@ -69,6 +69,9 @@ SECONDARY_ITEMS = [
 
 LOG_LINES: List[str] = []
 MAX_LOG_LINES = 20
+
+# Session-cached cloud drive skip paths (populated once at TUI boot)
+_cloud_skip_paths: Set[Path] = set()
 
 
 def add_log(msg: str, level: str = "info") -> None:
@@ -332,15 +335,61 @@ def _get_path(config: Config) -> Optional[Path]:
     return None
 
 
+def _check_cloud_path(target: Path) -> bool:
+    """Check if the target path is inside a cloud-synced folder.
+
+    If it is, display a warning and require explicit confirmation
+    before allowing the action to proceed.
+
+    Returns:
+        True if the user confirms or the path is not cloud-synced.
+        False if the user declines to proceed.
+    """
+    if not _cloud_skip_paths:
+        return True
+
+    resolved = target.resolve()
+    for cloud_path in _cloud_skip_paths:
+        try:
+            resolved.relative_to(cloud_path)
+            # Target is inside a cloud drive
+            display_warning(
+                f"\u2601  This path is inside a cloud-synced folder: {cloud_path.name}"
+            )
+            display_warning(
+                "Organizing files here may cause sync conflicts or data loss."
+            )
+            if not interactive_confirm(
+                "This path is inside a cloud-synced folder. Proceed anyway?",
+                default=False,
+            ):
+                add_log(
+                    f"Blocked: {target.name} is inside {cloud_path.name}",
+                    "warning",
+                )
+                return False
+            add_log(
+                f"User confirmed cloud path: {target.name}",
+                "warning",
+            )
+            return True
+        except ValueError:
+            continue
+
+    return True
+
+
 def _action_scan(config: Config) -> bool:
     """Run scan action and display results."""
     target = _get_path(config)
     if not target:
         return False
+    if not _check_cloud_path(target):
+        return False
 
     add_log(f"Scanning {target}...", "info")
     scanner = Scanner(config)
-    result = scanner.scan(target=str(target))
+    result = scanner.scan(target=str(target), skip_dirs=_cloud_skip_paths)
     scanner.print_report(result, verbose=True)
     add_log(
         f"Scanned {target.name}: {result.total_files} files, "
@@ -355,9 +404,11 @@ def _action_sort(config: Config) -> bool:
     target = _get_path(config)
     if not target:
         return False
+    if not _check_cloud_path(target):
+        return False
 
     scanner = Scanner(config)
-    scan_result = scanner.scan(target=str(target), recursive=False)
+    scan_result = scanner.scan(target=str(target), recursive=False, skip_dirs=_cloud_skip_paths)
 
     sort_by = interactive_select(
         "Sort method:",
@@ -397,9 +448,11 @@ def _action_dupes(config: Config) -> bool:
     target = _get_path(config)
     if not target:
         return False
+    if not _check_cloud_path(target):
+        return False
 
     scanner = Scanner(config)
-    scan_result = scanner.scan(target=str(target))
+    scan_result = scanner.scan(target=str(target), skip_dirs=_cloud_skip_paths)
     detector = DuplicateDetector(config)
     result = detector.find_duplicates(scan_result)
 
@@ -442,9 +495,11 @@ def _action_clean(config: Config) -> bool:
     target = _get_path(config)
     if not target:
         return False
+    if not _check_cloud_path(target):
+        return False
 
     scanner = Scanner(config)
-    scan_result = scanner.scan(target=str(target))
+    scan_result = scanner.scan(target=str(target), skip_dirs=_cloud_skip_paths)
     cleaner = Cleaner(config)
     plan = cleaner.plan_cleanup(scan_result)
 
@@ -476,9 +531,11 @@ def _action_rules(config: Config) -> bool:
     target = _get_path(config)
     if not target:
         return False
+    if not _check_cloud_path(target):
+        return False
 
     scanner = Scanner(config)
-    scan_result = scanner.scan(target=str(target))
+    scan_result = scanner.scan(target=str(target), skip_dirs=_cloud_skip_paths)
     engine = RuleEngine(config)
     plan = engine.evaluate(scan_result)
 
@@ -525,9 +582,11 @@ def _action_ai(config: Config) -> bool:
     target = _get_path(config)
     if not target:
         return False
+    if not _check_cloud_path(target):
+        return False
 
     scanner = Scanner(config)
-    scan_result = scanner.scan(target=str(target))
+    scan_result = scanner.scan(target=str(target), skip_dirs=_cloud_skip_paths)
 
     misc_files = [fi for fi in scan_result.files if fi.category == "Misc"]
     if not misc_files:
@@ -1038,11 +1097,18 @@ def run_tui(config: Optional[Config] = None) -> None:
         config = Config()
 
     # Detect cloud drives at launch
+    global _cloud_skip_paths
     detector = CloudDriveDetector(config)
     detected = detector.detect()
     if detected:
         from prism_organizer.interactive import interactive_cloud_drive_selection
-        interactive_cloud_drive_selection(detected)
+        skip_list, _include_list = interactive_cloud_drive_selection(detected)
+        _cloud_skip_paths = {d.path for d in skip_list}
+        if _cloud_skip_paths:
+            add_log(
+                f"\u2601 {len(_cloud_skip_paths)} cloud drive(s) detected (skipped)",
+                "info",
+            )
 
     console = get_console()
     add_log("Prism Organizer ready.  Select an action.", "info")

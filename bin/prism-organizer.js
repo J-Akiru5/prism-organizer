@@ -170,7 +170,7 @@ function downloadBinary() {
               const hash = await getFileSha256(tmpPath);
               const expectedHash = CHECKSUM_REGISTRY[WRAPPER_VERSION];
               if (!expectedHash) {
-                yellow(`Warning: No registered checksum for version ${WRAPPER_VERSION}. Continuing with caution.`);
+                throw new Error(`SECURITY: No checksum registered for version ${WRAPPER_VERSION}. Aborting download.`);
               } else if (hash !== expectedHash) {
                 throw new Error(`SHA-256 verification failed!\n  Expected: ${expectedHash}\n  Actual:   ${hash}`);
               } else {
