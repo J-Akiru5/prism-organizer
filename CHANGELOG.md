@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-08-18
+
+### Fixed
+- **`schedule add --command` Attribute Collision**: The nested `schedule add --command` argument shared the same `dest` (`args.command`) as the top-level subparser used for command dispatch, so passing `--command` silently overwrote the top-level command and routed execution to the wrong handler (e.g. `cmd_sort` instead of `cmd_schedule`), crashing with `AttributeError`. The nested flag now maps to `args.run_command`, leaving top-level dispatch untouched.
+
 ## [1.3.0] - 2026-08-18
 
 ### Added
