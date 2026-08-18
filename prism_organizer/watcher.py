@@ -233,14 +233,19 @@ class TaskScheduler:
         command: str,
         interval: str = "daily",
         time_str: str = "09:00",
+        days: str = None,
     ) -> bool:
         """Create a scheduled task to run a prism-organizer command.
 
         Args:
             path: Directory to operate on.
             command: Subcommand to run (``scan``, ``sort``, ``clean``, etc.).
-            interval: ``"daily"``, ``"weekly"``, or ``"hourly"``.
+            interval: ``"daily"``, ``"weekly"``, ``"hourly"``, or ``"monthly"``.
             time_str: Start time in ``HH:MM`` format (24h).
+            days: Comma-separated day-of-month integers (e.g. ``"1,15"``),
+                no spaces.  Required when ``interval`` is ``"monthly"`` —
+                this is the format ``schtasks.exe`` expects for ``/D`` with
+                ``/SC MONTHLY``.  Ignored for other intervals.
 
         Returns:
             True if the task was created successfully.
@@ -249,7 +254,7 @@ class TaskScheduler:
         task_name = f"{self.APP_NAME} - {command} {resolved.name}"
 
         exe = sys.executable
-        
+
         # Build the /TR command string.  subprocess.run(list) handles
         # Windows command-line quoting automatically for each argument,
         # so just use standard double-quoted paths.
@@ -259,8 +264,24 @@ class TaskScheduler:
             "daily": "DAILY",
             "weekly": "WEEKLY",
             "hourly": "HOURLY",
+            "monthly": "MONTHLY",
         }
         sc = schedule_map.get(interval, "DAILY")
+
+        if interval == "monthly":
+            if not days:
+                print_warning(
+                    "Monthly schedules require --days (e.g. \"1,15\")."
+                )
+                return False
+            for part in days.split(","):
+                part = part.strip()
+                if not part.isdigit() or not (1 <= int(part) <= 31):
+                    print_warning(
+                        f"Invalid day-of-month in --days: '{part}'. "
+                        "Use comma-separated integers between 1 and 31 (e.g. \"1,15\")."
+                    )
+                    return False
 
         cmd = [
             "schtasks", "/Create", "/SC", sc,
@@ -269,6 +290,9 @@ class TaskScheduler:
             "/ST", time_str,
             "/F",
         ]
+
+        if sc == "MONTHLY":
+            cmd += ["/D", days]
 
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)

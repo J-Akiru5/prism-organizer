@@ -180,9 +180,12 @@ def create_parser() -> argparse.ArgumentParser:
     sched_add.add_argument("path", help="Directory to operate on")
     sched_add.add_argument("--command", choices=["scan", "sort", "clean", "rules"],
                            default="sort", help="Command to run")
-    sched_add.add_argument("--interval", choices=["daily", "weekly", "hourly"],
+    sched_add.add_argument("--interval", choices=["daily", "weekly", "hourly", "monthly"],
                            default="daily", help="Schedule interval")
     sched_add.add_argument("--at", default="09:00", help="Time to run (HH:MM, 24h)")
+    sched_add.add_argument("--days", type=str, default="1,15",
+                           help="Comma-separated days of month (e.g. \"1,15\"), no spaces. "
+                                "Only used when --interval monthly")
 
     sched_sub.add_parser("list", help="List scheduled tasks")
     sched_sub.add_parser("remove", help="Remove a scheduled task")
@@ -692,6 +695,7 @@ def cmd_schedule(args: argparse.Namespace, config: Config) -> None:
             command=args.command,
             interval=args.interval,
             time_str=args.at,
+            days=args.days,
         )
     elif sub == "list":
         tasks = sched.list_tasks()

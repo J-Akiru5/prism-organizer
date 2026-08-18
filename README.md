@@ -143,6 +143,9 @@ prism-organizer watch ~/Downloads --action all       # Sort + clean
 prism-organizer schedule add ~/Downloads --command sort --interval daily --at 09:00
 prism-organizer schedule list
 prism-organizer schedule remove
+
+# Twice-a-month cleanup — runs on the 1st and 15th at 09:00
+prism-organizer schedule add ~/Downloads --command clean --interval monthly --days 1,15 --at 09:00
 ```
 
 ## Interactive TUI Dashboard
