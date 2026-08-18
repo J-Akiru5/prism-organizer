@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-08-18
+
+### Fixed
+- **Monthly Schedule `/D` Value**: `schtasks.exe` rejects a comma-separated day list for `/SC MONTHLY /D` (e.g. `/D 1,15` fails with "Invalid value for /D option") — only a single day is accepted. `TaskScheduler.add_task()` now registers one `schtasks` entry per requested day, named `"<base name> (day N)"`, so `schedule add --interval monthly --days 1,15` actually creates two working tasks instead of one that schtasks silently rejects. Each day is created independently — one failing day no longer blocks the rest, and a summary reports which days succeeded/failed.
+- **Monthly Group Removal**: `TaskScheduler.remove_task()` and the `schedule remove` CLI flow now recognize the day-suffixed task group a monthly schedule produces. Removing the shared base name deletes every day-task together; `schedule list` and `schedule remove` now flag which entries belong to the same monthly group so a user isn't left thinking a single removal cleared the whole schedule.
+
 ## [1.3.1] - 2026-08-18
 
 ### Fixed

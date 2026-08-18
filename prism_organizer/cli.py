@@ -18,7 +18,7 @@ Usage:
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, Optional, Set
+from typing import Any, Dict, Optional, Set
 
 from colorama import init as colorama_init
 
@@ -703,8 +703,15 @@ def cmd_schedule(args: argparse.Namespace, config: Config) -> None:
             print_info("No scheduled tasks found.")
             return
         print_header("SCHEDULED TASKS")
+        group_sizes: Dict[str, int] = {}
         for t in tasks:
-            print(f"  {t['name']}")
+            base = TaskScheduler.group_base_name(t["name"])
+            if base:
+                group_sizes[base] = group_sizes.get(base, 0) + 1
+        for t in tasks:
+            base = TaskScheduler.group_base_name(t["name"])
+            note = f"  (monthly group: {base}, {group_sizes[base]} day-tasks)" if base else ""
+            print(f"  {t['name']}{note}")
             print(f"    Next run: {t['next_run']} | Status: {t['status']}")
         print()
     elif sub == "remove":
@@ -714,16 +721,28 @@ def cmd_schedule(args: argparse.Namespace, config: Config) -> None:
             return
         print_header("SELECT TASK TO REMOVE")
         for i, t in enumerate(tasks, 1):
-            print(f"  {i}. {t['name']}")
+            base = TaskScheduler.group_base_name(t["name"])
+            note = (
+                f"  (part of monthly group '{base}' — enter that base name "
+                "at the prompt to remove all its days at once)"
+                if base else ""
+            )
+            print(f"  {i}. {t['name']}{note}")
         print()
         try:
-            choice = input("  Enter number (or Enter to cancel): ").strip()
+            choice = input(
+                "  Enter number, or a task/base name (or Enter to cancel): "
+            ).strip()
         except (KeyboardInterrupt, EOFError):
+            return
+        if not choice:
             return
         if choice.isdigit():
             idx = int(choice) - 1
             if 0 <= idx < len(tasks):
                 sched.remove_task(tasks[idx]["name"])
+        else:
+            sched.remove_task(choice)
     else:
         print_info("Use: prism-organizer schedule [add|list|remove]")
 

@@ -5,6 +5,7 @@ integration so that file organization can run automatically on a
 schedule or in response to filesystem events.
 """
 
+import re
 import subprocess
 import sys
 import time
@@ -227,6 +228,10 @@ class TaskScheduler:
 
     APP_NAME = "Prism Organizer"
 
+    # Matches the day-suffixed task name used for monthly schedules, e.g.
+    # "Prism Organizer - sort Downloads (day 15)".  See add_task().
+    _DAY_SUFFIX_RE = re.compile(r"^(.+) \(day (\d{1,2})\)$")
+
     def add_task(
         self,
         path: str,
@@ -243,12 +248,15 @@ class TaskScheduler:
             interval: ``"daily"``, ``"weekly"``, ``"hourly"``, or ``"monthly"``.
             time_str: Start time in ``HH:MM`` format (24h).
             days: Comma-separated day-of-month integers (e.g. ``"1,15"``),
-                no spaces.  Required when ``interval`` is ``"monthly"`` —
-                this is the format ``schtasks.exe`` expects for ``/D`` with
-                ``/SC MONTHLY``.  Ignored for other intervals.
+                no spaces.  Required when ``interval`` is ``"monthly"``.
+                ``schtasks.exe`` only accepts a *single* day for
+                ``/D`` with ``/SC MONTHLY`` (a comma-separated list is
+                rejected), so each day is registered as its own task named
+                ``"<base name> (day N)"``.  Ignored for other intervals.
 
         Returns:
-            True if the task was created successfully.
+            True if the task (or, for monthly, every day-task in the
+            group) was created successfully.
         """
         resolved = expand_path(path)
         task_name = f"{self.APP_NAME} - {command} {resolved.name}"
@@ -260,28 +268,15 @@ class TaskScheduler:
         # so just use standard double-quoted paths.
         task_run = f'"{exe}" -m prism_organizer {command} "{resolved}" --confirm'
 
+        if interval == "monthly":
+            return self._add_monthly_tasks(task_name, task_run, time_str, days)
+
         schedule_map = {
             "daily": "DAILY",
             "weekly": "WEEKLY",
             "hourly": "HOURLY",
-            "monthly": "MONTHLY",
         }
         sc = schedule_map.get(interval, "DAILY")
-
-        if interval == "monthly":
-            if not days:
-                print_warning(
-                    "Monthly schedules require --days (e.g. \"1,15\")."
-                )
-                return False
-            for part in days.split(","):
-                part = part.strip()
-                if not part.isdigit() or not (1 <= int(part) <= 31):
-                    print_warning(
-                        f"Invalid day-of-month in --days: '{part}'. "
-                        "Use comma-separated integers between 1 and 31 (e.g. \"1,15\")."
-                    )
-                    return False
 
         cmd = [
             "schtasks", "/Create", "/SC", sc,
@@ -290,9 +285,6 @@ class TaskScheduler:
             "/ST", time_str,
             "/F",
         ]
-
-        if sc == "MONTHLY":
-            cmd += ["/D", days]
 
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -306,6 +298,77 @@ class TaskScheduler:
         except (subprocess.SubprocessError, OSError) as e:
             print_warning(f"Failed to create scheduled task: {e}")
             return False
+
+    def _add_monthly_tasks(
+        self, base_task_name: str, task_run: str, time_str: str, days: str
+    ) -> bool:
+        """Create one ``schtasks`` entry per requested day-of-month.
+
+        ``schtasks /Create /SC MONTHLY /D 1,15`` fails with "Invalid value
+        for /D option" — ``/D`` only accepts a single day for a monthly
+        schedule.  To support "monthly on specific days", this registers
+        one real task per day, named ``"<base_task_name> (day N)"``.
+
+        Each day is created independently: if one fails, the rest are
+        still attempted rather than aborting the whole batch.
+
+        Returns:
+            True only if every day-task was created successfully.
+        """
+        if not days:
+            print_warning(
+                "Monthly schedules require --days (e.g. \"1,15\")."
+            )
+            return False
+
+        parsed_days: List[int] = []
+        for part in days.split(","):
+            part = part.strip()
+            if not part.isdigit() or not (1 <= int(part) <= 31):
+                print_warning(
+                    f"Invalid day-of-month in --days: '{part}'. "
+                    "Use comma-separated integers between 1 and 31 (e.g. \"1,15\")."
+                )
+                return False
+            parsed_days.append(int(part))
+
+        created: List[int] = []
+        failed: List[int] = []
+
+        for day in parsed_days:
+            day_task_name = f"{base_task_name} (day {day})"
+            cmd = [
+                "schtasks", "/Create", "/SC", "MONTHLY",
+                "/TN", day_task_name,
+                "/TR", task_run,
+                "/ST", time_str,
+                "/D", str(day),
+                "/F",
+            ]
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                if result.returncode == 0:
+                    print_success(f"Scheduled task created: {day_task_name}")
+                    created.append(day)
+                else:
+                    print_warning(f"Failed to create task for day {day}: {result.stderr.strip()}")
+                    failed.append(day)
+            except (subprocess.SubprocessError, OSError) as e:
+                print_warning(f"Failed to create scheduled task for day {day}: {e}")
+                failed.append(day)
+
+        if created:
+            print_info(
+                f"  Runs monthly at {time_str} on day(s) "
+                f"{', '.join(str(d) for d in created)}: {task_run}"
+            )
+        if failed:
+            print_warning(
+                f"Monthly schedule for '{base_task_name}' partially failed — "
+                f"day(s) not created: {', '.join(str(d) for d in failed)}"
+            )
+
+        return not failed
 
     def list_tasks(self) -> List[Dict[str, str]]:
         """List all Prism Organizer scheduled tasks.
@@ -335,15 +398,54 @@ class TaskScheduler:
 
         return tasks
 
+    @classmethod
+    def group_base_name(cls, task_name: str) -> Optional[str]:
+        """Return the shared base name of a monthly day-task, or ``None``.
+
+        Monthly schedules are stored as one ``schtasks`` entry per day (see
+        :meth:`add_task`), named ``"<base name> (day N)"``.  This lets
+        callers recognize and group those related entries instead of
+        treating each day as an unrelated, unconnected task.
+        """
+        match = cls._DAY_SUFFIX_RE.match(task_name)
+        return match.group(1) if match else None
+
     def remove_task(self, task_name: str) -> bool:
         """Remove a scheduled task by name.
 
+        If ``task_name`` matches an existing task exactly, only that task
+        is removed. Monthly schedules are stored as one ``schtasks`` entry
+        per day (see :meth:`add_task`), named ``"<base name> (day N)"`` —
+        passing the shared base name (without the day suffix) removes
+        every day-task in that group together, so a monthly schedule can
+        be deleted as the single logical task a user expects instead of
+        silently leaving other days behind.
+
         Args:
-            task_name: Full task name (as shown by :meth:`list_tasks`).
+            task_name: Full task name, or the base name of a monthly
+                group (as shown by :meth:`list_tasks`).
 
         Returns:
-            True if the task was removed.
+            True if the task (or entire group) was removed successfully.
         """
+        existing = {t["name"] for t in self.list_tasks()}
+
+        if task_name not in existing:
+            group = sorted(
+                n for n in existing if self.group_base_name(n) == task_name
+            )
+            if group:
+                print_info(
+                    f"'{task_name}' is a monthly schedule with {len(group)} "
+                    "day-task(s); removing all of them."
+                )
+                results = [self._delete_single(name) for name in group]
+                return all(results)
+
+        return self._delete_single(task_name)
+
+    def _delete_single(self, task_name: str) -> bool:
+        """Delete exactly one ``schtasks`` entry by its full name."""
         try:
             result = subprocess.run(
                 ["schtasks", "/Delete", "/TN", task_name, "/F"],
@@ -353,8 +455,8 @@ class TaskScheduler:
                 print_success(f"Removed scheduled task: {task_name}")
                 return True
             else:
-                print_warning(f"Failed to remove task: {result.stderr.strip()}")
+                print_warning(f"Failed to remove task '{task_name}': {result.stderr.strip()}")
                 return False
         except (subprocess.SubprocessError, OSError) as e:
-            print_warning(f"Failed to remove scheduled task: {e}")
+            print_warning(f"Failed to remove scheduled task '{task_name}': {e}")
             return False
