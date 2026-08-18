@@ -5,12 +5,26 @@ navigation, status, and operation feedback.  All subcommands
 are accessible through keyboard shortcuts.
 
 Uses ``rich.live.Live`` for real-time panel updates.
+
+Visual design
+-------------
+The layout, color palette, and menu/status-bar copy are implemented from
+the official "Prism Organizer TUI Mockups" design (Ghost Glow design
+system, Syntaxure Labs). See ``docs/TUI_DESIGN.md`` for the source
+mockups, the full color-token mapping, and notes on what was deliberately
+scoped out of this pass (e.g. the mockup's per-screen status states like
+"AWAITING CONFIRM" are not wired up dynamically — the status bar here
+always reflects the idle "READY" state, since driving it from the
+in-flight preview/confirm flow would require restructuring
+:mod:`prism_organizer.preview` and was left for a follow-up).
 """
 
 import time
 import os
+import platform
 import sys
 import signal
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
@@ -19,6 +33,7 @@ from rich.panel import Panel
 from rich.layout import Layout
 from rich.align import Align
 from rich.text import Text
+from rich.table import Table
 from rich import box
 
 from prism_organizer import __version__
@@ -74,6 +89,27 @@ MAX_LOG_LINES = 20
 _cloud_skip_paths: Set[Path] = set()
 
 
+def _emoji_safe(emoji: str, fallback: str) -> str:
+    """Return ``emoji`` if the current stdout encoding can represent it,
+    otherwise ``fallback``.
+
+    Some Windows consoles (legacy cp1252 code page, no UTF-8 active)
+    can't encode most emoji. Rich's Win32 renderer raises
+    ``UnicodeEncodeError`` in that case, and the TUI's full-screen draw
+    path (see ``_tui_print``) swallows exceptions to stay resize-safe —
+    so an un-encodable emoji here wouldn't just look wrong, it would
+    silently blank the entire dashboard. Checking ahead of time keeps
+    the visual on brand where it's supported and falls back to the
+    original ASCII marker everywhere else.
+    """
+    encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+    try:
+        emoji.encode(encoding)
+        return emoji
+    except (UnicodeEncodeError, LookupError):
+        return fallback
+
+
 def add_log(msg: str, level: str = "info") -> None:
     """Add a message to the persistent log panel."""
     ts = time.strftime("%H:%M:%S")
@@ -94,13 +130,25 @@ def add_log(msg: str, level: str = "info") -> None:
 
 def _make_banner() -> Panel:
     """Build the top banner panel."""
+    mark = _emoji_safe("\U0001f52e", "[*]")
     title = Text(
-        f" [*] Prism Organizer v{__version__}",
-        style=f"bold {THEME['accent']}",
+        f" {mark} Prism Organizer v{__version__}",
+        style=f"bold {THEME['primary']}",
     )
-    subtitle = Text(
-        "scan  |  sort  |  dupes  |  clean  |  rules  |  ai  |  undo",
-        style=THEME["muted"],
+    subtitle = Text.from_markup(
+        f"[{THEME['muted']}]scan[/{THEME['muted']}] "
+        f"[{THEME['border']}]|[/{THEME['border']}] "
+        f"[{THEME['muted']}]sort[/{THEME['muted']}] "
+        f"[{THEME['border']}]|[/{THEME['border']}] "
+        f"[{THEME['muted']}]dupes[/{THEME['muted']}] "
+        f"[{THEME['border']}]|[/{THEME['border']}] "
+        f"[{THEME['muted']}]clean[/{THEME['muted']}] "
+        f"[{THEME['border']}]|[/{THEME['border']}] "
+        f"[{THEME['muted']}]rules[/{THEME['muted']}] "
+        f"[{THEME['border']}]|[/{THEME['border']}] "
+        f"[{THEME['muted']}]ai[/{THEME['muted']}] "
+        f"[{THEME['border']}]|[/{THEME['border']}] "
+        f"[{THEME['muted']}]undo"
     )
     return Panel(
         Align.center(Group(title, subtitle), vertical="middle"),
@@ -110,11 +158,18 @@ def _make_banner() -> Panel:
 
 
 def _make_menu() -> Panel:
-    """Build the main menu panel."""
+    """Build the main menu panel.
+
+    Icon badges are purple, except the AI classify entry which gets the
+    design's pink accent (``THEME["accent_ai"]``) to call out the one
+    AI-powered action in the main list; numeric shortcuts stay cyan.
+    """
     lines = []
     for key, cmd, desc, icon in MENU_ITEMS:
+        badge_color = THEME["accent_ai"] if cmd == "ai" else THEME["accent"]
         lines.append(
-            f"[bold {THEME['primary']}]{icon} [{key}][/bold {THEME['primary']}]  "
+            f"[bold {badge_color}]{icon}[/bold {badge_color}] "
+            f"[bold {THEME['primary']}][{key}][/bold {THEME['primary']}]  "
             f"[{THEME['info']}]{desc:<24}[/{THEME['info']}]"
         )
     lines.append("")
@@ -171,49 +226,93 @@ def _make_stats_panel(config: Config) -> Panel:
     )
 
 
+def _dependency_version(name: str) -> str:
+    """Look up an installed package's version, or ``"?"`` if unknown."""
+    try:
+        return _pkg_version(name)
+    except PackageNotFoundError:
+        return "?"
+
+
+def _make_status_bar() -> Panel:
+    """Build the bottom status bar.
+
+    Mirrors the design mockup's terminal-chrome footer: a READY
+    indicator, the current working directory, and runtime versions
+    (Python / Rich / Prism Organizer). Always shows the idle "READY"
+    state — see the module docstring for why the mockup's per-screen
+    states (e.g. its dry-run preview's "AWAITING CONFIRM") aren't wired
+    up dynamically here.
+    """
+    dot = _emoji_safe("●", "*")  # ● — see _emoji_safe() for why this is guarded
+    grid = Table.grid(expand=True, padding=(0, 1))
+    grid.add_column(ratio=1)
+    grid.add_column(ratio=2, justify="center")
+    grid.add_column(ratio=1, justify="right")
+    grid.add_row(
+        f"[bold {THEME['success']}]{dot} READY[/bold {THEME['success']}]",
+        f"[{THEME['muted']}]{str(Path.cwd())}[/{THEME['muted']}]",
+        f"[{THEME['muted']}]PY_{platform.python_version()} "
+        f"· RICH_{_dependency_version('rich')} · V{__version__}"
+        f"[/{THEME['muted']}]",
+    )
+    return Panel(
+        grid,
+        box=box.HORIZONTALS,
+        border_style=THEME["border"],
+        padding=(0, 1),
+    )
+
+
 def _make_help_panel() -> Panel:
     """Build the comprehensive help overlay."""
+    # Guarded the same way as _make_banner()'s emoji: this panel is drawn
+    # through _tui_print(), which has no ASCII fallback, so an
+    # un-encodable divider glyph would blank the whole help screen on a
+    # cp1252 Windows console instead of just looking slightly different.
+    div = _emoji_safe("━━━", "===")
+    p, i, m, s = THEME["primary"], THEME["info"], THEME["muted"], THEME["success"]
     lines = [
-        f"[bold {THEME['accent']}]━━━ Quick Start ━━━",
+        f"[bold {THEME['accent']}]{div} Quick Start {div}",
         "",
-        f"  [{THEME['primary']}][1-8][/{THEME['primary']}]  {THEME['info']}Select an action from the menu",
-        f"  [{THEME['primary']}]Arrow keys[/{THEME['primary']}]  {THEME['info']}Navigate directory / option lists",
-        f"  [{THEME['primary']}]Enter[/{THEME['primary']}]  {THEME['info']}Confirm selection",
-        f"  [{THEME['primary']}]Space[/{THEME['primary']}]  {THEME['info']}Toggle checkbox selections",
-        f"  [{THEME['primary']}]Ctrl+C[/{THEME['primary']}]  {THEME['info']}Cancel / Go back",
-        f"  [{THEME['primary']}][Q][/{THEME['primary']}]  {THEME['info']}Quit",
+        f"  [{p}][1-8][/{p}]  [{i}]Select an action from the menu[/{i}]",
+        f"  [{p}]Arrow keys[/{p}]  [{i}]Navigate directory / option lists[/{i}]",
+        f"  [{p}]Enter[/{p}]  [{i}]Confirm selection[/{i}]",
+        f"  [{p}]Space[/{p}]  [{i}]Toggle checkbox selections[/{i}]",
+        f"  [{p}]Ctrl+C[/{p}]  [{i}]Cancel / Go back[/{i}]",
+        f"  [{p}][Q][/{p}]  [{i}]Quit[/{i}]",
         "",
-        f"[bold {THEME['accent']}]━━━ Main Menu ━━━",
+        f"[bold {THEME['accent']}]{div} Main Menu {div}",
         "",
-        f"  {THEME['primary']}[1]{THEME['info']} Scan directory        {THEME['primary']}[4]{THEME['info']} Clean junk files",
-        f"  {THEME['primary']}[2]{THEME['info']} Sort files            {THEME['primary']}[5]{THEME['info']} Apply custom rules",
-        f"  {THEME['primary']}[3]{THEME['info']} Find duplicates       {THEME['primary']}[6]{THEME['info']} AI classify",
-        f"  {THEME['primary']}[7]{THEME['info']} Watch mode            {THEME['primary']}[8]{THEME['info']} Undo last operation",
+        f"  [{p}][1][/{p}] [{i}]Scan directory[/{i}]        [{p}][4][/{p}] [{i}]Clean junk files[/{i}]",
+        f"  [{p}][2][/{p}] [{i}]Sort files[/{i}]            [{p}][5][/{p}] [{i}]Apply custom rules[/{i}]",
+        f"  [{p}][3][/{p}] [{i}]Find duplicates[/{i}]       [{p}][6][/{p}] [{i}]AI classify[/{i}]",
+        f"  [{p}][7][/{p}] [{i}]Watch mode[/{i}]            [{p}][8][/{p}] [{i}]Undo last operation[/{i}]",
         "",
-        f"  {THEME['primary']}[S]{THEME['muted']} Schedule tasks       {THEME['primary']}[H]{THEME['muted']} This help screen",
+        f"  [{p}][S][/{p}] [{m}]Schedule tasks[/{m}]       [{p}][H][/{p}] [{m}]This help screen[/{m}]",
         "",
-        f"[bold {THEME['accent']}]━━━ Command Line ━━━",
+        f"[bold {THEME['accent']}]{div} Command Line {div}",
         "",
-        f"  {THEME['muted']}prism-organizer scan    <path>    Analyze directory",
-        f"  {THEME['muted']}prism-organizer sort    <path>    Organize files",
-        f"  {THEME['muted']}prism-organizer dupes   <path>    Find duplicates",
-        f"  {THEME['muted']}prism-organizer clean   <path>    Remove junk",
-        f"  {THEME['muted']}prism-organizer undo              Reverse last action",
-        f"  {THEME['muted']}prism-organizer help              Full help",
+        f"  [{m}]prism-organizer scan    <path>    Analyze directory[/{m}]",
+        f"  [{m}]prism-organizer sort    <path>    Organize files[/{m}]",
+        f"  [{m}]prism-organizer dupes   <path>    Find duplicates[/{m}]",
+        f"  [{m}]prism-organizer clean   <path>    Remove junk[/{m}]",
+        f"  [{m}]prism-organizer undo              Reverse last action[/{m}]",
+        f"  [{m}]prism-organizer help              Full help[/{m}]",
         "",
-        f"[bold {THEME['accent']}]━━━ Safety ━━━",
+        f"[bold {THEME['accent']}]{div} Safety {div}",
         "",
-        f"  {THEME['success']}All operations show a preview before executing.",
-        f"  {THEME['success']}Deleted files go to .prism-organizer_backup/",
-        f"  {THEME['success']}Every action is logged and fully undoable.",
-        f"  {THEME['success']}Cloud drives are auto-detected and skipped.",
+        f"  [{s}]All operations show a preview before executing.[/{s}]",
+        f"  [{s}]Deleted files go to .prism-organizer_backup/[/{s}]",
+        f"  [{s}]Every action is logged and fully undoable.[/{s}]",
+        f"  [{s}]Cloud drives are auto-detected and skipped.[/{s}]",
         "",
-        f"[bold {THEME['accent']}]━━━ Tips ━━━",
+        f"[bold {THEME['accent']}]{div} Tips {div}",
         "",
-        f"  {THEME['muted']}Use --workers 8 for faster scanning on SSDs",
-        f"  {THEME['muted']}Use --perceptual for near-duplicate image detection",
-        f"  {THEME['muted']}Use --review-folder for safe manual review",
-        f"  {THEME['muted']}Run 'prism-organizer help' for full documentation",
+        f"  [{m}]Use --workers 8 for faster scanning on SSDs[/{m}]",
+        f"  [{m}]Use --perceptual for near-duplicate image detection[/{m}]",
+        f"  [{m}]Use --review-folder for safe manual review[/{m}]",
+        f"  [{m}]Run 'prism-organizer help' for full documentation[/{m}]",
     ]
     return Panel(
         "\n".join(lines),
@@ -242,7 +341,12 @@ def _clear_state() -> None:
 def _build_layout(config: Config, active: str = "") -> Layout:
     """Construct the full TUI layout.
 
-    Layout: top banner, middle (menu | stats), bottom (log | help).
+    Layout: top banner, middle (menu | stats), status bar, bottom (log | help).
+
+    The status bar (design mockup's terminal-chrome footer) is only added
+    when there's enough vertical room alongside the banner — on short
+    terminals it's dropped first, same as the existing banner/stats
+    fallbacks, to avoid crowding out the menu itself.
     """
     try:
         terminal_lines = os.get_terminal_size().lines
@@ -257,10 +361,16 @@ def _build_layout(config: Config, active: str = "") -> Layout:
         layout.split(
             Layout(name="main", ratio=1),
         )
+    elif terminal_lines < 26:
+        layout.split(
+            Layout(name="banner", size=5),
+            Layout(name="main", ratio=1),
+        )
     else:
         layout.split(
             Layout(name="banner", size=5),
             Layout(name="main", ratio=1),
+            Layout(name="footer", size=3),
         )
 
     if terminal_lines < 15:
@@ -296,6 +406,11 @@ def _build_layout(config: Config, active: str = "") -> Layout:
 
     try:
         layout["log"].update(_make_log_panel())
+    except KeyError:
+        pass
+
+    try:
+        layout["footer"].update(_make_status_bar())
     except KeyError:
         pass
 
@@ -935,10 +1050,15 @@ def get_user_choice(console, config) -> str:
     except OSError:
         last_size = (80, 24)
 
+    # Same guard as _make_banner()/_make_help_panel(): this prompt is
+    # redrawn on every keystroke through the raw _tui_print() path (no
+    # ASCII fallback), so an un-encodable rule character would blank the
+    # main input prompt itself on a cp1252 Windows console.
+    rule = _emoji_safe("─", "-") * 25
     prompt_text = (
-        "  [dim cyan]" + "─" * 25 + "[/dim cyan] "
+        f"  [dim cyan]{rule}[/dim cyan] "
         "[bold magenta]Enter choice[/bold magenta] "
-        "[dim cyan]" + "─" * 25 + "[/dim cyan] "
+        f"[dim cyan]{rule}[/dim cyan] "
         "[bold cyan]>[/bold cyan] "
     )
 
@@ -1105,8 +1225,13 @@ def run_tui(config: Optional[Config] = None) -> None:
         skip_list, _include_list = interactive_cloud_drive_selection(detected)
         _cloud_skip_paths = {d.path for d in skip_list}
         if _cloud_skip_paths:
+            # Log lines are drawn through the raw _tui_print() path (no
+            # ASCII fallback, unlike display_warning()), so an
+            # un-encodable glyph here would silently blank the whole
+            # dashboard on the next redraw \u2014 see _emoji_safe().
+            cloud_mark = _emoji_safe("\u2601", "[cloud]")
             add_log(
-                f"\u2601 {len(_cloud_skip_paths)} cloud drive(s) detected (skipped)",
+                f"{cloud_mark} {len(_cloud_skip_paths)} cloud drive(s) detected (skipped)",
                 "info",
             )
 

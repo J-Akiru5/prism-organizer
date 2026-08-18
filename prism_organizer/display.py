@@ -27,15 +27,28 @@ from prism_organizer.utils import format_size
 from prism_organizer import __version__ as _app_version
 
 # ── Theme ─────────────────────────────────────────────────────────────
+#
+# Palette values are taken from the "Ghost Glow" design system (Syntaxure
+# Labs) used for the official Prism Organizer TUI mockups — see
+# docs/TUI_DESIGN.md for the full token table and source references.
+# Colors are given as truecolor hex strings; Rich automatically downgrades
+# these to the nearest 256-color/16-color equivalent on terminals that
+# don't support 24-bit color, so this is safe on any Rich-supported
+# terminal. "muted"/"border"/"row_alt" intentionally keep Rich's relative
+# `dim`/named-grey styling rather than a fixed hex — those need to adapt
+# to whatever foreground/background the user's own terminal theme uses
+# (including light-background terminals), whereas the bright accent and
+# status colors below read fine on both.
 
 THEME = {
-    "primary": "cyan",
-    "accent": "magenta",
-    "success": "green",
-    "warning": "yellow",
-    "error": "red",
+    "primary": "#22d3ee",     # cyan-bright  — headers, active borders, prompts
+    "accent": "#a78bfa",      # purple-bright — menu icon badges, section titles
+    "accent_ai": "#ec4899",   # pink — the AI-specific badge/accent
+    "success": "#34d399",     # emerald-bright — OK / READY status
+    "warning": "#fbbf24",     # amber-bright — WARN status, confirmations
+    "error": "#f87171",       # status-danger red — ERR status
     "muted": "dim white",
-    "info": "white",
+    "info": "#ededed",        # ink — primary text
     "border": "dim cyan",
     "row_alt": "on grey15",
 }

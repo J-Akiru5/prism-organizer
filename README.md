@@ -159,8 +159,14 @@ prism-organizer tui
 The TUI provides:
 - **Arrow-key navigation** — select directories, commands, and options with arrow keys
 - **Live panels** — activity log, quick stats, and menu side-by-side
+- **Status bar** — a `● READY` indicator, current working directory, and runtime versions (Python / Rich / Prism Organizer), shown on terminals with enough room
 - **Keyboard shortcuts** — every function is a single keystroke away
 - **Zero subcommand memorization** — discover all features from the menu
+
+The color palette (cyan primary, purple menu badges, pink for the AI action)
+follows the project's "Ghost Glow" design tokens — see
+[`docs/TUI_DESIGN.md`](docs/TUI_DESIGN.md) for the full token table and design
+source.
 
 ```
 ╔══════════════════════════════════════════════════════╗
@@ -178,7 +184,9 @@ The TUI provides:
 ║  ↩️ [8]  Undo last       ║                          ║
 ║  ⚙️ [9]  Setup AI        ║                          ║
 ║  [S] Schedule  [H] Help  [Q] Quit                   ║
-╚══════════════════════════╩═══════════════════════════╝
+╠══════════════════════════╩═══════════════════════════╣
+║  ● READY      C:\Users\you\Downloads    PY_3.12 · V1.4.0  ║
+╚════════════════════════════════════════════════════════╝
 ```
 
 > Use `--no-interactive` to disable arrow-key prompts and use plain text input:

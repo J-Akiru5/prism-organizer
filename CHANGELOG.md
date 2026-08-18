@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-08-18
+
+### Added
+- **TUI Visual Refresh**: The interactive TUI (`prism-organizer tui`) now uses the project's "Ghost Glow" design-system color tokens (see [`docs/TUI_DESIGN.md`](docs/TUI_DESIGN.md) for the full token table and design source) — cyan primary, purple menu badges, and a dedicated pink accent for the AI classify action.
+- **TUI Status Bar**: A new footer panel shows a `● READY` indicator, the current working directory, and runtime versions (Python / Rich / Prism Organizer), on terminals with enough vertical room.
+
+### Fixed
+- **TUI Windows Console Encoding Crashes**: Several TUI screens embedded Unicode characters (an emoji banner mark, section-divider glyphs, a status bullet, the main input prompt's rule line, and a cloud-drive-detection log line) with no fallback for non-UTF-8 Windows console code pages (e.g. the common default `cp1252`). On such a console, `UnicodeEncodeError` inside the TUI's full-screen redraw path was silently swallowed, blanking the entire dashboard instead of just rendering incorrectly. All of these are now guarded with a `sys.stdout`-encoding check that falls back to a plain-ASCII equivalent. Two of the fixed spots (the main input prompt's divider and the cloud-drive log line) predate this release.
+- **TUI Help Screen Markup**: Several color spans in the `[H]` help overlay were missing their Rich markup brackets, so the literal color name/hex code printed as garbage text instead of being applied as styling.
+
 ## [1.3.3] - 2026-08-18
 
 ### Security

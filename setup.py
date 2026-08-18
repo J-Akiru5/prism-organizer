@@ -22,7 +22,7 @@ def read_requirements():
 
 setup(
     name="prism-organizer",
-    version="1.3.3",
+    version="1.4.0",
     author="Jeff",
     description="A portable CLI tool that scans, analyzes, and organizes files on Windows machines",
     license="MIT",
