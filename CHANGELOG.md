@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 2026-08-18
+
+### Security
+- **AI Classification Path Traversal**: `_build_classification_plan()` (`ai-classify` command) built the destination directory as `target_dir / c.suggested_category` directly from unsanitized AI output — a suggested category like `"../../../evil"` would escape `target_dir` entirely (unlike `_build_rename_plan()`, which already ran AI-suggested filenames through `sanitize_suggested_stem()`). AI-suggested categories are now validated against the configured category allow-list (`config.categories.keys()`); any suggestion outside that list falls back to the file's own already-trusted category instead of being trusted as a path segment.
+
 ## [1.3.2] - 2026-08-18
 
 ### Fixed

@@ -549,6 +549,7 @@ def cmd_ai_classify(args: argparse.Namespace, config: Config) -> None:
                     executor = Executor(config)
                     plan = _build_classification_plan(
                         high_confidence, scan_result.target_dir,
+                        valid_categories=set(config.categories.keys()),
                     )
                     executor.execute_rules(plan, expand_path(args.path))
 
@@ -594,14 +595,34 @@ def cmd_ai_classify(args: argparse.Namespace, config: Config) -> None:
 def _build_classification_plan(
     classifications: list,
     target_dir: Path,
+    valid_categories: Optional[Set[str]] = None,
 ) -> Any:
-    """Build a temporary RulePlan from AI classifications."""
+    """Build a temporary RulePlan from AI classifications.
+
+    Args:
+        classifications: AI classification results.
+        target_dir: Directory the suggested category becomes a subdirectory
+            of — ``target_dir / category``.
+        valid_categories: Allow-list of known category names (e.g.
+            ``config.categories.keys()``). ``c.suggested_category`` is raw
+            AI output and is never trusted as a path segment directly: if
+            it isn't in this allow-list (e.g. an injected value like
+            ``"../../../evil"``), the file's own already-trusted category
+            is used instead. Pass ``None`` to skip validation.
+    """
     from prism_organizer.rules import RulePlan, RuleMatch
     from prism_organizer.utils import safe_filename
 
     plan = RulePlan()
     for c in classifications:
-        dest_dir = target_dir / c.suggested_category
+        category = c.suggested_category
+        if valid_categories is not None and category not in valid_categories:
+            print_warning(
+                f"AI suggested an unrecognized category '{category}' for "
+                f"'{c.file_info.name}'; keeping it under '{c.file_info.category}'."
+            )
+            category = c.file_info.category
+        dest_dir = target_dir / category
         dest = safe_filename(dest_dir, c.file_info.name)
         plan.matches.append(RuleMatch(
             file_info=c.file_info,

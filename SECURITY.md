@@ -33,8 +33,8 @@ Only the latest major/minor release is actively supported with security updates.
 
 | Version | Supported |
 | ------- | --------- |
-| 1.0.x   | Yes       |
-| < 1.0.0 | No        |
+| 1.3.x   | Yes       |
+| < 1.3.0 | No        |
 
 ---
 
